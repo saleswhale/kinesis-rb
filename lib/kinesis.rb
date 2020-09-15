@@ -1,6 +1,6 @@
-require "kinesis_rb/version"
+require "kinesis/version"
 
-module KinesisRb
+module Kinesis
   class Error < StandardError; end
   # Your code goes here...
 end

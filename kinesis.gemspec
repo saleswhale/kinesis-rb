@@ -1,8 +1,8 @@
-require_relative 'lib/kinesis_rb/version'
+require_relative 'lib/kinesis/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "kinesis_rb"
-  spec.version       = KinesisRb::VERSION
+  spec.name          = "kinesis"
+  spec.version       = Kinesis::VERSION
   spec.authors       = ["Saleswhale"]
   spec.email         = ["odina@saleswhale.com"]
 

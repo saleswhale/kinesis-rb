@@ -1,6 +1,6 @@
-RSpec.describe KinesisRb do
+RSpec.describe Kinesis do
   it "has a version number" do
-    expect(KinesisRb::VERSION).not_to be nil
+    expect(Kinesis::VERSION).not_to be nil
   end
 
   it "does something useful" do
