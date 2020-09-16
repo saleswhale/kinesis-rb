@@ -51,15 +51,23 @@ module Kinesis
         item['SequenceNumber']
       )
     rescue StandardError
-      shutdown_shard_reader
+      shutdown_shard_reader(shard_id)
     end
 
-    def shutdown_shard_reader
-      # TODO
+    def shutdown_shard_reader(shard_id)
+      shard = @shards[shard_id]
+
+      return unless shard
+
+      shard.shutdown
+
+      @shards.delete(shard_id)
     end
 
     def shutdown
-      # TODO
+      @shards.each(&:shutdown)
+      @shards = {}
+      @run = false
     end
   end
 end
