@@ -1,6 +1,10 @@
-require "kinesis/version"
+# frozen_string_literal: true
+
+require 'kinesis/version'
 
 module Kinesis
-  class Error < StandardError; end
-  # Your code goes here...
+  RETRY_EXCEPTIONS = %w[
+    ProvisionedThroughputExceededException
+    ThrottlingException
+  ].freeze
 end
