@@ -23,11 +23,12 @@ module Kinesis
 
     def each
       setup_shards
-      wait_for_records while @run
-    rescue Interrupt
-      @run = false
-    rescue SignalException
-      @run = false
+
+      while @run
+        wait_for_records { |item| yield item }
+
+        trap('INT') { @run = false }
+      end
     ensure
       shutdown
     end
@@ -45,8 +46,6 @@ module Kinesis
 
         create_shard_reader(shard_id) unless @shards.key?(shard_id)
       end
-
-      @shards.values.map(&:thread).each(&:join)
     end
 
     # lock when able
@@ -67,12 +66,10 @@ module Kinesis
     def wait_for_records
       return if @record_queue.empty?
 
-      shard_id, resp = @record.pop
+      shard_id, resp = @record_queue.pop
 
-      resp['Records'].each do |item|
+      resp[:records].each do |item|
         # Log: Got record
-        puts "---- got item: #{item}"
-
         yield item
 
         save_checkpoint(shard_id, item)
@@ -115,7 +112,6 @@ module Kinesis
     def shutdown
       @shards.values.each(&:shutdown)
       @shards = {}
-      @run = false
     end
 
     def state_shard_id(shard_id)

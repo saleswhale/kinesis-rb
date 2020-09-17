@@ -30,8 +30,6 @@ module Kinesis
       while alive
         sleep_time = process
 
-        puts "--- sleeping for #{sleep_time}"
-
         if sleep_time
           sleep sleep_time
         else # sleep_time is false or nil
