@@ -1,8 +1,6 @@
 # Kinesis
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/kinesis`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+An attempt (bastardized one, at that) to port https://github.com/NerdWalletOSS/kinesis-python to Ruby but using threads instead of processes
 
 ## Installation
 
