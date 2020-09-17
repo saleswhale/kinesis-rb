@@ -2,9 +2,6 @@
 
 require 'kinesis/version'
 
+# Kinesis
 module Kinesis
-  RETRY_EXCEPTIONS = %w[
-    ProvisionedThroughputExceededException
-    ThrottlingException
-  ].freeze
 end

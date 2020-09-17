@@ -2,3 +2,8 @@ Metrics/MethodLength:
   Description: 'Avoid methods longer than 30 lines of code.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#short-methods'
   Max: 30
+
+Metrics/ParameterLists:
+  Description: 'Avoid parameter lists longer than 6 parameters.'
+  StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#too-many-params'
+  Max: 6

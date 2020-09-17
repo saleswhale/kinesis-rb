@@ -7,9 +7,9 @@ module Kinesis
   class Consumer
     LOCK_DURATION = 30
 
-    def initialize(stream_name:, kinesis_client: nil, state: nil, reader_sleep_time: nil)
+    def initialize(stream_name:, state: nil, reader_sleep_time: nil)
       @error_queue = Queue.new
-      @kinesis_client = kinesis_client || Aws::Kinesis::Client.new
+      @kinesis_client = Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
       @run = true
@@ -45,6 +45,8 @@ module Kinesis
 
         create_shard_reader(shard_id) unless @shards.key?(shard_id)
       end
+
+      @shards.values.each(&:join)
     end
 
     # lock when able
@@ -98,14 +100,13 @@ module Kinesis
     def create_shard_reader(shard_id)
       shard_iterator = get_shard_iterator(shard_id)
 
-      @shards[shard_id] = ShardReader.new(
+      @shards[shard_id] = ShardReader.new_thread(
         error_queue: @error_queue,
-        kinesis_client: @kinesis_client,
         record_queue: @record_queue,
         shard_id: shard_id,
         shard_iterator: shard_iterator,
         sleep_time: @reader_sleep_time
-      ).run
+      )
     end
 
     def shutdown
