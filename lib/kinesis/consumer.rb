@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
-require 'concurrent-ruby/hash'
+require 'concurrent/hash'
+require 'kinesis/shard_reader'
+require 'kinesis/state'
 
 module Kinesis
   # Kinesis::Consumer
@@ -20,10 +22,8 @@ module Kinesis
     end
 
     def each
-      while @run
-        setup_shards
-        read_record
-      end
+      setup_shards
+      wait_for_records while @run
     rescue Interrupt
       @run = false
     rescue SignalException
@@ -38,15 +38,15 @@ module Kinesis
     def setup_shards
       @stream_data = @kinesis_client.describe_stream(stream_name: @stream_name)
 
-      @stream_data['StreamDescription']['Shards'].each do |shard_data|
-        shard_id = shard_data['ShardId']
+      @stream_data.dig(:stream_description, :shards).each do |shard_data|
+        shard_id = shard_data[:shard_id]
 
         lock_shard(shard_id)
 
         create_shard_reader(shard_id) unless @shards.key?(shard_id)
       end
 
-      @shards.values.each(&:join)
+      @shards.values.map(&:thread).each(&:join)
     end
 
     # lock when able
@@ -54,7 +54,7 @@ module Kinesis
       return unless @state
 
       shard_locked = @state.lock_shard(
-        state_shard_id(shard_data['ShardId']),
+        state_shard_id(shard_data[:shard_id]),
         LOCK_DURATION
       )
 
@@ -64,12 +64,15 @@ module Kinesis
       shutdown_shard_reader(shard_id) if @shards.keys.include?(shard_id)
     end
 
-    def read_record
+    def wait_for_records
       return if @record_queue.empty?
 
       shard_id, resp = @record.pop
 
       resp['Records'].each do |item|
+        # Log: Got record
+        puts "---- got item: #{item}"
+
         yield item
 
         save_checkpoint(shard_id, item)
@@ -100,7 +103,7 @@ module Kinesis
     def create_shard_reader(shard_id)
       shard_iterator = get_shard_iterator(shard_id)
 
-      @shards[shard_id] = ShardReader.new_thread(
+      @shards[shard_id] = Kinesis::ShardReader.new(
         error_queue: @error_queue,
         record_queue: @record_queue,
         shard_id: shard_id,
@@ -110,7 +113,7 @@ module Kinesis
     end
 
     def shutdown
-      @shards.each(&:shutdown)
+      @shards.values.each(&:shutdown)
       @shards = {}
       @run = false
     end
@@ -123,13 +126,14 @@ module Kinesis
       iterator_args = if @state
                         @state.get_iterator_args(shard_id)
                       else
-                        { 'shard_iterator_type' => 'LATEST' }
+                        { shard_iterator_type: 'LATEST' }
                       end
 
       @kinesis_client.get_shard_iterator(
         stream_name: @stream_name,
+        shard_id: shard_id,
         **iterator_args
-      )
+      ).dig(:shard_iterator)
     end
   end
 end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'kinesis/subthread_loop'
+
 module Kinesis
   # Kinesis::ShardReader
   class ShardReader < SubthreadLoop
@@ -16,6 +18,8 @@ module Kinesis
       @shard_id = shard_id
       @shard_iterator = shard_iterator
       @sleep_time = sleep_time || DEFAULT_SLEEP_TIME
+
+      super
     end
 
     # inside thread - instance vars
@@ -29,9 +33,9 @@ module Kinesis
       resp = @kinesis_client.get_records(shard_iterator: @shard_iterator)
 
       # Log: the shard has been closed
-      return false unless resp['NextShardIterator']
+      return false unless resp[:next_shard_iterator]
 
-      @shard_iterator = resp['NextShardIterator']
+      @shard_iterator = resp[:next_shard_iterator]
       @record_queue << [@shard_id, resp]
       @retries = 0
 
@@ -48,6 +52,10 @@ module Kinesis
       end
 
       sleep_time
+    end
+
+    def shutdown
+      thread&.exit
     end
   end
 end

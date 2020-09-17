@@ -3,10 +3,10 @@
 module Kinesis
   # Kinesis::Subthread
   class Subthread
-    def initialize(**kwargs)
-      @wait_for_child = kwargs[:wait_for_child] || false
-      @thread = nil
+    attr_reader :thread
 
+    def initialize(_)
+      @thread = nil
       start
     end
 
@@ -21,10 +21,6 @@ module Kinesis
 
   # Kinesis::SubthreadLoop
   class SubthreadLoop < Subthread
-    def initialize(**kwargs)
-      super(**kwargs, wait_for_child: false)
-    end
-
     # http://docs.aws.amazon.com/streams/latest/dev/kinesis-low-latency.html
     def run
       alive = true
@@ -33,6 +29,8 @@ module Kinesis
 
       while alive
         sleep_time = process
+
+        puts "--- sleeping for #{sleep_time}"
 
         if sleep_time
           sleep sleep_time

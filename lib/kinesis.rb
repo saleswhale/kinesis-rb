@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'kinesis/version'
+require 'aws-sdk-kinesis'
 
-# Kinesis
-module Kinesis
-end
+require 'kinesis/version'
+require 'kinesis/consumer'
+require 'kinesis/producer'
