@@ -9,14 +9,18 @@ module Kinesis
   class Consumer
     LOCK_DURATION = 30
 
-    def initialize(stream_name:, state: nil, reader_sleep_time: nil)
+    def initialize(
+      stream_name:,
+      reader_sleep_time: nil,
+      dynamodb: { client: nil, table_name: nil, consumer_group: nil }
+    )
       @error_queue = Queue.new
       @kinesis_client = Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
       @run = true
       @shards = Concurrent::Hash.new
-      @state = state
+      @state = State.new(dynamodb: dynamodb, stream_name: stream_name)
       @stream_data = nil
       @stream_name = stream_name
     end
@@ -50,12 +54,7 @@ module Kinesis
 
     # lock when able
     def lock_shard(shard_id)
-      return unless @state
-
-      shard_locked = @state.lock_shard(
-        state_shard_id(shard_data[:shard_id]),
-        LOCK_DURATION
-      )
+      shard_locked = @state.lock_shard(shard_id, Time.now + LOCK_DURATION)
 
       return if shard_locked
 
@@ -77,12 +76,7 @@ module Kinesis
     end
 
     def save_checkpoint(shard_id, item)
-      return unless @state
-
-      @state.checkpoint(
-        state_shard_id(shard_id),
-        item['SequenceNumber']
-      )
+      @state.checkpoint(shard_id, item[:sequence_number])
     rescue StandardError
       shutdown_shard_reader(shard_id)
     end
@@ -114,16 +108,8 @@ module Kinesis
       @shards = {}
     end
 
-    def state_shard_id(shard_id)
-      [@stream_name, shard_id].join('_')
-    end
-
     def get_shard_iterator(shard_id)
-      iterator_args = if @state
-                        @state.get_iterator_args(shard_id)
-                      else
-                        { shard_iterator_type: 'LATEST' }
-                      end
+      iterator_args = @state.get_iterator_args(shard_id)
 
       @kinesis_client.get_shard_iterator(
         stream_name: @stream_name,

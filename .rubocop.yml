@@ -1,9 +1,32 @@
 Metrics/MethodLength:
-  Description: 'Avoid methods longer than 30 lines of code.'
+  Description: 'Avoid methods longer than 55 lines of code.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#short-methods'
-  Max: 30
+  Max: 55
 
 Metrics/ParameterLists:
   Description: 'Avoid parameter lists longer than 6 parameters.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#too-many-params'
   Max: 6
+
+Metrics/CyclomaticComplexity:
+  Description: >-
+                 A complexity metric that is strongly correlated to the number
+                 of test cases needed to validate a method.
+  Max: 10
+
+Metrics/PerceivedComplexity:
+  Description: >-
+                 A complexity metric geared towards measuring complexity for a
+                 human reader.
+  Max: 10
+
+Metrics/AbcSize:
+  Description: >-
+                 A calculated magnitude based on number of assignments,
+                 branches, and conditions.
+  Reference: 'http://c2.com/cgi/wiki?AbcMetric'
+  Max: 25
+
+Metrics/ClassLength:
+  Description: 'Avoid classes longer than 130 lines of code.'
+  Max: 130

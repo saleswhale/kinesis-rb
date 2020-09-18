@@ -4,6 +4,7 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'aws-sdk-kinesis', '~> 1'
+gem 'aws-sdk-dynamodb', '~> 1'
 gem 'rake', '~> 12.0'
 gem 'concurrent-ruby', '~> 1.1.7'
 
