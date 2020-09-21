@@ -3,7 +3,7 @@
 require 'rspec'
 require 'spec_helper'
 require 'kinesis/producer'
-require 'aws-sdk-kinesis'
+require 'aws-sdk'
 
 describe Kinesis::Producer do
   subject do
