@@ -25,4 +25,12 @@ Gem::Specification.new do |spec|
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
+
+  spec.add_development_dependency "bundler"
+  spec.add_development_dependency "rake", "~> 13.0"
+  spec.add_development_dependency "rspec", "~> 3"
+
+  spec.add_dependency 'aws-sdk-kinesis', '~> 1'
+  spec.add_dependency 'aws-sdk-dynamodb', '~> 1'
+  spec.add_dependency 'concurrent-ruby', '~> 1.0'
 end
