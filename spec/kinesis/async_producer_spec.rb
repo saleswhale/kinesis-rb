@@ -3,8 +3,7 @@
 require 'rspec'
 require 'spec_helper'
 require 'kinesis/consumer'
-require 'aws-sdk-kinesis'
-require 'aws-sdk-dynamodb'
+require 'aws-sdk'
 
 describe Kinesis::AsyncProducer do
   subject do

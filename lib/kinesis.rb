@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'aws-sdk-kinesis'
+require 'aws-sdk'
 
 require 'kinesis/version'
 require 'kinesis/consumer'
