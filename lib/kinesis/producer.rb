@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'kinesis/subthread_loop'
+require 'objspace'
+
 module Kinesis
   # Kinesis::AsyncProducer
   class AsyncProducer < SubthreadLoop
@@ -12,31 +15,36 @@ module Kinesis
 
     def initialize(stream_name:, buffer_time:, record_queue:)
       @buffer_time = buffer_time
-      @record_queue = record_queue
+      @main_record_queue = record_queue
       @stream_name = stream_name
+
+      super
     end
 
     def preprocess
-      @alive = true
       @kinesis_client = Aws::Kinesis::Client.new
       @next_record_queue = Queue.new
       @record_count = 0
+      @record_queue = Queue.new
       @record_size = 0
       @retries = 0
+      @timer_start = Time.now
     end
 
     def process
-      while @alive
-        next if @record_queue.empty?
+      while (Time.now - @timer_start) < @buffer_time
+        next if @main_record_queue.empty?
 
-        # record, explicit_hash_key, partition_key = @record_queue.pop
-        record = @record_queue.pop
+        # record, explicit_hash_key, partition_key = @main_record_queue.pop
+        record = @main_record_queue.pop
+        partition_key = Time.now.to_f.to_s
 
         record = {
-          'Data': record
-        } # TODO: Add PartitionKey
+          data: record.to_json,
+          partition_key: partition_key
+        }
 
-        @record_size += sizeof(record)
+        @record_size += ObjectSpace.memsize_of(record)
 
         if @record_size >= MAX_RECORDS_SIZE
           # Log: Records exceed MAX_RECORDS_SIZE (#{MAX_RECORDS_SIZE})! Adding to next_records: #{record}
