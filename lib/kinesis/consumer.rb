@@ -7,14 +7,16 @@ require 'kinesis/state'
 module Kinesis
   # Kinesis::Consumer
   class Consumer
-    LOCK_DURATION = 30
+    LOCK_DURATION = 30 # seconds
 
     def initialize(
       stream_name:,
       reader_sleep_time: nil,
+      lock_duration: LOCK_DURATION,
       dynamodb: { client: nil, table_name: nil, consumer_group: nil }
     )
       @error_queue = Queue.new
+      @lock_duration = lock_duration
       @kinesis_client = Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
@@ -26,12 +28,18 @@ module Kinesis
     end
 
     def each
-      setup_shards
-
       while @run
-        wait_for_records { |item| yield item }
+        setup_shards
+        setup_time = Time.now
 
-        trap('INT') { @run = false }
+        while @run
+          # @lock_duration - 1 because we want to refresh just before it expires
+          break if (Time.now - setup_time) > (@lock_duration - 1)
+
+          wait_for_records { |item| yield item }
+
+          trap('INT') { @run = false }
+        end
       end
     ensure
       shutdown
