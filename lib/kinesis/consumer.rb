@@ -13,11 +13,12 @@ module Kinesis
       stream_name:,
       reader_sleep_time: nil,
       lock_duration: LOCK_DURATION,
+      kinesis: { client: nil },
       dynamodb: { client: nil, table_name: nil, consumer_group: nil }
     )
       @error_queue = Queue.new
       @lock_duration = lock_duration
-      @kinesis_client = Aws::Kinesis::Client.new
+      @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
       @run = true

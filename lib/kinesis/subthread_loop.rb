@@ -11,7 +11,11 @@ module Kinesis
     end
 
     def start
-      @thread = Thread.new { run }
+      if $TESTING
+        run
+      else
+        @thread = Thread.new { run }
+      end
     end
 
     def run
