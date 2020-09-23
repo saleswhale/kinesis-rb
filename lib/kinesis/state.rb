@@ -6,6 +6,8 @@ require 'time'
 module Kinesis
   # Kinesis::State
   class State
+    # dynamodb[:consumer_group] - Preferrably the name of the application using the gem,
+    #                             otherwise will just default to the root dir
     def initialize(dynamodb: {}, stream_name:)
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
       @consumer_id = Socket.gethostbyname(Socket.gethostname).first
