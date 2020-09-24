@@ -66,11 +66,14 @@ module Kinesis
     end
 
     def flush_records
+      @timer_start = Time.now
+
       return if @record_queue.empty?
 
       # Log: Flushing #{@record_queue.size} records
+      records = []
 
-      records = @record_queue.size.times { @record_queue.pop }
+      @record_queue.size.times { records << @record_queue.pop }
 
       @kinesis_client.put_records(
         records: records,
@@ -78,6 +81,8 @@ module Kinesis
       )
 
       @next_record_queue.size.times { @record_queue << @next_record_queue.pop }
+      @record_count = 0
+      @record_size = 0
     end
   end
 
