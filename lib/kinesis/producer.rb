@@ -78,6 +78,10 @@ module Kinesis
       )
 
       @next_record_queue.size.times { @record_queue << @next_record_queue.pop }
+
+      @record_count = 0
+      @record_size = 0
+      @timer_start = Time.now
     end
   end
 
