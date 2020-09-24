@@ -7,7 +7,7 @@ An attempt (bastardized one at that) to port https://github.com/NerdWalletOSS/ki
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'kinesis', git: 'git@github.com:saleswhale/kinesis-rb.git'
+gem 'kinesis', git: 'https://github.com/saleswhale/kinesis-rb'
 ```
 
 And then execute:
