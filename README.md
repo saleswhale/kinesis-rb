@@ -7,7 +7,7 @@ An attempt (bastardized one at that) to port https://github.com/NerdWalletOSS/ki
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'kinesis', git: 'git@github.com:saleswhale/kinesis_rb.git'
+gem 'kinesis', git: 'git@github.com:saleswhale/kinesis-rb.git'
 ```
 
 And then execute:
@@ -25,7 +25,7 @@ The consumer works by launching a thread per shard in the stream, then implement
 ```ruby
 require 'kinesis/consumer'
 
-consumer = Kinesis::Consumer.new(stream_name='your-stream-here')
+consumer = Kinesis::Consumer.new(stream_name: 'your-stream-here')
 
 consumer.each do |message| # can also be "for message in consumer" if you prefer it
   # suppose I am expecting a JSONified payload
