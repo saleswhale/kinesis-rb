@@ -28,21 +28,21 @@ module Kinesis
     end
 
     def each
-      trap('SIGINT') { throw(:terminate) }
+      trap('INT') { raise SignalException.new('SIGTERM') }
 
-      catch(:terminate) do
+      loop do
+        setup_shards
+        setup_time = Time.now
+
         loop do
-          setup_shards
-          setup_time = Time.now
+          # @lock_duration - 1 because we want to refresh just before it expires
+          break if (Time.now - setup_time) > (@lock_duration - 1)
 
-          loop do
-            # @lock_duration - 1 because we want to refresh just before it expires
-            break if (Time.now - setup_time) > (@lock_duration - 1)
-
-            wait_for_records { |item| yield item }
-          end
+          wait_for_records { |item| yield item }
         end
       end
+    rescue SignalException => e
+      raise e unless ['SIGTERM', 'SIGINT'].include?(e.to_s)
     ensure
       shutdown
     end

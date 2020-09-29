@@ -58,10 +58,22 @@ describe Kinesis::Consumer do
       expect(message['type']).to eq(proxy_message['type'])
     end
 
-    it 'should handle interrupt' do
+    it 'should handle SIGINT' do
       expect_any_instance_of(Kinesis::ShardReader).to receive(:shutdown)
-      Thread.new { sleep 0.1; Process.kill('SIGINT', Process.pid) }
-      subject.each {}
+      Thread.new { sleep 0.1; Process.kill('INT', Process.pid) }
+      expect { subject.each {} }.not_to raise_error
+    end
+
+    it 'should handle SIGTERM' do
+      expect_any_instance_of(Kinesis::ShardReader).to receive(:shutdown)
+      Thread.new { sleep 0.1; Process.kill('TERM', Process.pid) }
+      expect { subject.each {} }.not_to raise_error
+    end
+
+    it 'should not handle other signals' do
+      expect_any_instance_of(Kinesis::ShardReader).to receive(:shutdown)
+      Thread.new { sleep 0.1; Process.kill('USR1', Process.pid) }
+      expect { subject.each {} }.to raise_error(SignalException)
     end
   end
 end
