@@ -11,11 +11,7 @@ module Kinesis
     end
 
     def start
-      if $TESTING
-        run
-      else
-        @thread = Thread.new { run }
-      end
+      @thread = Thread.new { run }
     end
 
     def run
@@ -27,17 +23,15 @@ module Kinesis
   class SubthreadLoop < Subthread
     # http://docs.aws.amazon.com/streams/latest/dev/kinesis-low-latency.html
     def run
-      alive = true
-
       preprocess
 
-      while alive
+      loop do
         sleep_time = process
 
         if sleep_time
           sleep sleep_time
         else # sleep_time is false or nil
-          alive = false
+          break
         end
       end
     end

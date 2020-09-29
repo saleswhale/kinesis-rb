@@ -21,7 +21,6 @@ module Kinesis
       @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
-      @run = true
       @shards = Concurrent::Hash.new
       @state = State.new(dynamodb: dynamodb, stream_name: stream_name)
       @stream_data = nil
@@ -29,19 +28,21 @@ module Kinesis
     end
 
     def each
-      while @run
+      trap('INT') { raise SignalException.new('SIGTERM') }
+
+      loop do
         setup_shards
         setup_time = Time.now
 
-        while @run
+        loop do
           # @lock_duration - 1 because we want to refresh just before it expires
           break if (Time.now - setup_time) > (@lock_duration - 1)
 
           wait_for_records { |item| yield item }
-
-          trap('INT') { @run = false }
         end
       end
+    rescue SignalException => e
+      raise e unless ['SIGTERM', 'SIGINT'].include?(e.to_s)
     ensure
       shutdown
     end
