@@ -8,6 +8,7 @@ module Kinesis
   # Kinesis::Consumer
   class Consumer
     LOCK_DURATION = 30 # seconds
+    READ_INTERVAL = 0.05 # seconds
 
     def initialize(
       stream_name:,
@@ -39,6 +40,8 @@ module Kinesis
           break if (Time.now - setup_time) > (@lock_duration - 1)
 
           wait_for_records { |item| yield item }
+
+          sleep READ_INTERVAL # without sleep, CPU utilization shoots up 100%
         end
       end
     rescue SignalException => e
