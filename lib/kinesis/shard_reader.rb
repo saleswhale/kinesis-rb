@@ -8,8 +8,16 @@ module Kinesis
     DEFAULT_SLEEP_TIME = 1.0
     MAX_SLEEP_TIME = 30.0
 
-    def initialize(shard_id:, shard_iterator:, record_queue:, error_queue:, sleep_time: nil)
+    def initialize(
+      error_queue:,
+      logger:,
+      record_queue:,
+      shard_id:,
+      shard_iterator:,
+      sleep_time: nil
+    )
       @error_queue = error_queue
+      @logger = logger
       @record_queue = record_queue
       @shard_id = shard_id
       @shard_iterator = shard_iterator
@@ -28,8 +36,15 @@ module Kinesis
       sleep_time = @sleep_time
       resp = @kinesis_client.get_records(shard_iterator: @shard_iterator)
 
-      # Log: the shard has been closed
-      return false unless resp[:next_shard_iterator]
+      unless resp[:next_shard_iterator]
+        @logger.info(
+          {
+            message: 'Shard has been closed',
+            shard_id: @shard_id
+          }
+        )
+        return false
+      end
 
       @shard_iterator = resp[:next_shard_iterator]
       @record_queue << [@shard_id, resp]
@@ -43,7 +58,14 @@ module Kinesis
         sleep_time = [MAX_SLEEP_TIME, @retries * 2].min
         @retries += 1
       else
-        # Log: which error
+        @logger.warn(
+          {
+            message: 'Error encountered when getting records',
+            error: e,
+            shard_iterator: @shard_iterator
+          }
+        )
+
         sleep_time = false
       end
 

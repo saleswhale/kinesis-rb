@@ -3,6 +3,7 @@
 require 'concurrent/hash'
 require 'kinesis/shard_reader'
 require 'kinesis/state'
+require 'logger'
 
 module Kinesis
   # Kinesis::Consumer
@@ -12,10 +13,11 @@ module Kinesis
 
     def initialize(
       stream_name:,
-      reader_sleep_time: nil,
-      lock_duration: LOCK_DURATION,
+      dynamodb: { client: nil, table_name: nil, consumer_group: nil },
       kinesis: { client: nil },
-      dynamodb: { client: nil, table_name: nil, consumer_group: nil }
+      lock_duration: LOCK_DURATION,
+      logger: nil,
+      reader_sleep_time: nil
     )
       @error_queue = Queue.new
       @lock_duration = lock_duration
@@ -23,9 +25,11 @@ module Kinesis
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
       @shards = Concurrent::Hash.new
-      @state = State.new(dynamodb: dynamodb, stream_name: stream_name)
       @stream_data = nil
       @stream_name = stream_name
+      @logger = logger || Logger.new(STDOUT)
+
+      @state = State.new(dynamodb: dynamodb, stream_name: stream_name, logger: @logger)
     end
 
     def each
@@ -81,7 +85,8 @@ module Kinesis
       shard_id, resp = @record_queue.pop
 
       resp[:records].each do |item|
-        # Log: Got record
+        @logger.info({ message: 'Got record', item: item })
+
         yield item
 
         save_checkpoint(shard_id, item)
@@ -109,6 +114,7 @@ module Kinesis
 
       @shards[shard_id] = Kinesis::ShardReader.new(
         error_queue: @error_queue,
+        logger: @logger,
         record_queue: @record_queue,
         shard_id: shard_id,
         shard_iterator: shard_iterator,
