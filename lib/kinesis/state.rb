@@ -84,9 +84,11 @@ module Kinesis
         if shard && shard['consumerId'] != @consumer_id && Time.parse(shard['expiresIn']) > Time.now
           @logger.info(
             {
-              message: 'Not starting reader for shard; Locked by different consumer',
-              consumer: shard['consumerId'],
-              expires: shard['expiresIn']
+              message: 'Not starting reader for shard as it is locked by a different consumer',
+              consumer_id: @consumer_id,
+              locked_consumer_id: shard['consumerId'],
+              locked_expiry: shard['expiresIn'],
+              shard_id: shard_id
             }
           )
           return false

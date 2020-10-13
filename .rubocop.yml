@@ -25,8 +25,8 @@ Metrics/AbcSize:
                  A calculated magnitude based on number of assignments,
                  branches, and conditions.
   Reference: 'http://c2.com/cgi/wiki?AbcMetric'
-  Max: 25
+  Max: 30
 
 Metrics/ClassLength:
-  Description: 'Avoid classes longer than 130 lines of code.'
-  Max: 130
+  Description: 'Avoid classes longer than 150 lines of code.'
+  Max: 150
