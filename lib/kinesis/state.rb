@@ -80,7 +80,7 @@ module Kinesis
       if resp[:item]
         shard = resp[:item].dig('shards', shard_id)
 
-        if shard && shard != @consumer_id && Time.parse(shard['expiresIn']) > Time.now
+        if shard && shard['consumerId'] != @consumer_id && Time.parse(shard['expiresIn']) > Time.now
           # Log: Not starting reader for shard; Locked by different {consumerId} until {expiresIn}
           return false
         end
