@@ -8,11 +8,12 @@ module Kinesis
   class State
     # dynamodb[:consumer_group] - Preferrably the name of the application using the gem,
     #                             otherwise will just default to the root dir
-    def initialize(dynamodb: {}, stream_name:)
+    def initialize(dynamodb: {}, stream_name:, logger:)
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
       @consumer_id = Socket.gethostbyname(Socket.gethostname).first
       @dynamodb_client = dynamodb[:client]
       @dynamodb_table_name = dynamodb[:table_name]
+      @logger = logger
       @shards = {}
       @stream_name = stream_name
     end
@@ -81,7 +82,15 @@ module Kinesis
         shard = resp[:item].dig('shards', shard_id)
 
         if shard && shard['consumerId'] != @consumer_id && Time.parse(shard['expiresIn']) > Time.now
-          # Log: Not starting reader for shard; Locked by different {consumerId} until {expiresIn}
+          @logger.info(
+            {
+              message: 'Not starting reader for shard as it is locked by a different consumer',
+              consumer_id: @consumer_id,
+              locked_consumer_id: shard['consumerId'],
+              locked_expiry: shard['expiresIn'],
+              shard_id: shard_id
+            }
+          )
           return false
         end
 
@@ -98,7 +107,11 @@ module Kinesis
     rescue StandardError => e
       raise e unless Kinesis::RETRYABLE_EXCEPTIONS.include?(e.class.name)
 
-      # Log: Throttled while trying to read lock table in Dynamo
+      @logger.warn(
+        {
+          message: 'Throttled while trying to read lock table in Dynamo'
+        }
+      )
       sleep 1
       retry
     end

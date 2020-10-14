@@ -2,6 +2,7 @@
 
 require 'kinesis/subthread_loop'
 require 'objspace'
+require 'logger'
 
 module Kinesis
   # Kinesis::AsyncProducer
@@ -13,8 +14,9 @@ module Kinesis
     MAX_RECORDS_SIZE = (2**20)
     MAX_RECORDS_COUNT = 500
 
-    def initialize(stream_name:, buffer_time:, record_queue:)
+    def initialize(stream_name:, buffer_time:, record_queue:, logger: nil)
       @buffer_time = buffer_time
+      @logger = logger || Logger.new(STDOUT)
       @main_record_queue = record_queue
       @stream_name = stream_name
 
@@ -47,7 +49,12 @@ module Kinesis
         @record_size += ObjectSpace.memsize_of(record)
 
         if @record_size >= MAX_RECORDS_SIZE
-          # Log: Records exceed MAX_RECORDS_SIZE (#{MAX_RECORDS_SIZE})! Adding to next_records: #{record}
+          @logger.warn(
+            {
+              message: "Records exceed MAX_RECORDS_SIZE (#{MAX_RECORDS_SIZE})! Adding to next_records",
+              record: record
+            }
+          )
           @next_record_queue << record
           break
         end
@@ -56,7 +63,12 @@ module Kinesis
         @record_count += 1
 
         if @record_count >= MAX_RECORDS_COUNT
-          # Log: Records have reached MAX_RECORDS_COUNT (#{MAX_RECORDS_COUNT})! Flushing records
+          @logger.warn(
+            {
+              message: "Records have reached MAX_RECORDS_COUNT (#{MAX_RECORDS_COUNT})! Flushing records"
+            }
+          )
+
           break
         end
       end
@@ -70,7 +82,8 @@ module Kinesis
 
       return if @record_queue.empty?
 
-      # Log: Flushing #{@record_queue.size} records
+      @logger.info({ message: 'Flushing records', size: @record_queue.size })
+
       records = []
 
       @record_queue.size.times { records << @record_queue.pop }
