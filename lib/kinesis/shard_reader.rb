@@ -57,6 +57,14 @@ module Kinesis
       if sleep_time < MAX_SLEEP_TIME && Kinesis::RETRYABLE_EXCEPTIONS.include?(e.class.name)
         sleep_time = [MAX_SLEEP_TIME, @retries * 2].min
         @retries += 1
+
+        @logger.warn(
+          {
+            message: 'Retryable exception encountered when getting records',
+            error: e,
+            retry_count: @retries
+          }
+        )
       else
         @logger.warn(
           {
