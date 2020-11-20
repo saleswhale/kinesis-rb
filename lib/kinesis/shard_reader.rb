@@ -51,12 +51,20 @@ module Kinesis
       @retries = 0
 
       sleep_time
-    rescue StandardError => e
+    rescue Aws::Kinesis::Errors::ServiceError => e
       # sleep for 1 second the first loop, 1 second the next, then 2, 4, 6, 8, ..., up to a max of 30 or
       # until we complete a successful get_records call
       if sleep_time < MAX_SLEEP_TIME && Kinesis::RETRYABLE_EXCEPTIONS.include?(e.class.name)
         sleep_time = [MAX_SLEEP_TIME, @retries * 2].min
         @retries += 1
+
+        @logger.warn(
+          {
+            message: 'Retryable exception encountered when getting records',
+            error: e,
+            retry_count: @retries
+          }
+        )
       else
         @logger.warn(
           {

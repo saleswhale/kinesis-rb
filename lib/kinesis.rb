@@ -8,7 +8,6 @@ require 'kinesis/producer'
 
 module Kinesis
   RETRYABLE_EXCEPTIONS = %w[
-    ProvisionedThroughputExceededException
-    ThrottlingException
+    Aws::Kinesis::Errors::ProvisionedThroughputExceededException
   ].freeze
 end

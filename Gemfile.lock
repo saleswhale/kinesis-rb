@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    kinesis (0.0.2)
+    kinesis (0.0.3)
       aws-sdk (~> 2)
       concurrent-ruby (~> 1.0)
 
@@ -9,32 +9,32 @@ GEM
   remote: https://rubygems.org/
   specs:
     aws-eventstream (1.1.0)
-    aws-sdk (2.11.589)
-      aws-sdk-resources (= 2.11.589)
-    aws-sdk-core (2.11.589)
+    aws-sdk (2.11.631)
+      aws-sdk-resources (= 2.11.631)
+    aws-sdk-core (2.11.631)
       aws-sigv4 (~> 1.0)
       jmespath (~> 1.0)
-    aws-sdk-resources (2.11.589)
-      aws-sdk-core (= 2.11.589)
+    aws-sdk-resources (2.11.631)
+      aws-sdk-core (= 2.11.631)
     aws-sigv4 (1.2.2)
       aws-eventstream (~> 1, >= 1.0.2)
     concurrent-ruby (1.1.7)
     diff-lcs (1.4.4)
     jmespath (1.4.0)
     rake (13.0.1)
-    rspec (3.9.0)
-      rspec-core (~> 3.9.0)
-      rspec-expectations (~> 3.9.0)
-      rspec-mocks (~> 3.9.0)
-    rspec-core (3.9.2)
-      rspec-support (~> 3.9.3)
-    rspec-expectations (3.9.2)
+    rspec (3.10.0)
+      rspec-core (~> 3.10.0)
+      rspec-expectations (~> 3.10.0)
+      rspec-mocks (~> 3.10.0)
+    rspec-core (3.10.0)
+      rspec-support (~> 3.10.0)
+    rspec-expectations (3.10.0)
       diff-lcs (>= 1.2.0, < 2.0)
-      rspec-support (~> 3.9.0)
-    rspec-mocks (3.9.1)
+      rspec-support (~> 3.10.0)
+    rspec-mocks (3.10.0)
       diff-lcs (>= 1.2.0, < 2.0)
-      rspec-support (~> 3.9.0)
-    rspec-support (3.9.3)
+      rspec-support (~> 3.10.0)
+    rspec-support (3.10.0)
 
 PLATFORMS
   ruby
