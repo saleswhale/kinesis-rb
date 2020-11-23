@@ -25,7 +25,6 @@ module Kinesis
       @reader_sleep_time = reader_sleep_time
       @record_queue = Queue.new
       @shards = Concurrent::Hash.new
-      @stream_data = nil
       @stream_name = stream_name
       @logger = logger || Logger.new(STDOUT)
 
@@ -58,9 +57,12 @@ module Kinesis
 
     # 1 thread per shard, will indefinitely push to queue
     def setup_shards
-      @stream_data = @kinesis_client.describe_stream(stream_name: @stream_name)
+      response = @kinesis_client.list_shards(
+        stream_name: @stream_name,
+        shard_filter: { type: 'AT_LATEST' }
+      )
 
-      @stream_data.dig(:stream_description, :shards).each do |shard_data|
+      response.shards.each do |shard_data|
         shard_id = shard_data[:shard_id]
 
         lock_shard(shard_id)

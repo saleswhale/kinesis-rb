@@ -8,26 +8,17 @@ require 'aws-sdk'
 describe Kinesis::Consumer do
   let(:kinesis_client) do
     client = Aws::Kinesis::Client.new(stub_responses: true)
-    client.stub_responses(:describe_stream, {
-      stream_description: {
-        stream_name: 'dummy',
-        stream_arn: 'dummy',
-        stream_status: 'dummy',
-        has_more_shards: false,
-        retention_period_hours: 1,
-        stream_creation_timestamp: Time.now,
-        enhanced_monitoring: [],
-        shards: [{
-          hash_key_range: {
-            starting_hash_key: '123',
-            ending_hash_key: '123'
-          },
-          sequence_number_range: {
-            starting_sequence_number: '123'
-          },
-          shard_id: 'dummy_shard_id'
-        }]
-      }
+    client.stub_responses(:list_shards, {
+      shards: [{
+        hash_key_range: {
+          starting_hash_key: '123',
+          ending_hash_key: '123'
+        },
+        sequence_number_range: {
+          starting_sequence_number: '123'
+        },
+        shard_id: 'dummy_shard_id'
+      }]
     })
     client
   end
