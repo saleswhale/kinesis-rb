@@ -45,7 +45,8 @@ module Kinesis
           'streamName': @stream_name
         },
         expression_attribute_names: {
-          '#shard_id': shard_id
+          '#shard_id': shard_id,
+          '#shards': 'shards'
         },
         expression_attribute_values: {
           ':consumer_group': @consumer_group,
@@ -56,10 +57,10 @@ module Kinesis
           'consumerGroup = :consumer_group AND ' \
           'streamName = :stream_name AND ' \
           '(' \
-          '  attribute_not_exists(shards.#shard_id.checkpoint) OR ' \
-          '  shards.#shard_id.checkpoint < :sequence_number ' \
+          '  attribute_not_exists(#shards.#shard_id.checkpoint) OR ' \
+          '  #shards.#shard_id.checkpoint < :sequence_number ' \
           ')',
-        update_expression: 'SET shards.#shard_id.checkpoint = :sequence_number'
+        update_expression: 'SET #shards.#shard_id.checkpoint = :sequence_number'
       )
     end
 
@@ -130,18 +131,19 @@ module Kinesis
         table_name: @dynamodb_table_name,
         key: key,
         expression_attribute_names: {
-          '#shard_id': shard_id
+          '#shard_id': shard_id,
+          '#shards': 'shards'
         },
         expression_attribute_values: {
           ':consumer_id': @consumer_id,
           ':expires': expiry
         },
         condition_expression:
-          'attribute_not_exists(shards.#shard_id)',
+          'attribute_not_exists(#shards.#shard_id)',
         update_expression:
           'SET ' \
-          'shards.#shard_id.consumerId = :consumer_id, ' \
-          'shards.#shard_id.expiresIn = :expires'
+          '#shards.#shard_id.consumerId = :consumer_id, ' \
+          '#shards.#shard_id.expiresIn = :expires'
       )
       @shards[shard_id] = {
         'consumerId': @consumer_id,
@@ -159,7 +161,8 @@ module Kinesis
         table_name: @dynamodb_table_name,
         key: key,
         expression_attribute_names: {
-          '#shard_id': shard_id
+          '#shard_id': shard_id,
+          '#shards': 'shards'
         },
         expression_attribute_values: {
           ':new_consumer_id': @consumer_id,
@@ -168,12 +171,12 @@ module Kinesis
           ':current_expires': current_expiry
         },
         condition_expression:
-          'shards.#shard_id.consumerId = :current_consumer_id AND ' \
-          'shards.#shard_id.expiresIn = :current_expires',
+          '#shards.#shard_id.consumerId = :current_consumer_id AND ' \
+          '#shards.#shard_id.expiresIn = :current_expires',
         update_expression:
           'SET ' \
-          'shards.#shard_id.consumerId = :new_consumer_id, ' \
-          'shards.#shard_id.expiresIn = :new_expires'
+          '#shards.#shard_id.consumerId = :new_consumer_id, ' \
+          '#shards.#shard_id.expiresIn = :new_expires'
       )
       @shards[shard_id] = {
         'consumerId': @consumer_id,
