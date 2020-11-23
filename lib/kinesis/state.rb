@@ -100,7 +100,7 @@ module Kinesis
       end
 
       if @shards[shard_id].nil?
-        create_new_lock(expires_in, shard_id)
+        create_new_lock(expires_in, shard_id, key)
         @logger.info(message: "Created new lock for shard #{shard_id}")
       else # update the lock
         update_lock(expires_in, shard_id, key)
@@ -124,21 +124,33 @@ module Kinesis
 
     private
 
-    def create_new_lock(expires_in, shard_id)
-      shard = {
-        'consumerId': @consumer_id,
-        'expiresIn': expires_in.utc.iso8601
-      }
+    def create_new_lock(expires_in, shard_id, key)
+      expiry = expires_in.utc.iso8601
 
-      @dynamodb_client.put_item(
+      @dynamodb_client.update_item(
         table_name: @dynamodb_table_name,
-        item: {
-          'consumerGroup': @consumer_group,
-          'streamName': @stream_name,
-          'shards': {shard_id.to_s => shard}
-        }
+        key: key,
+        expression_attribute_names: {
+          '#consumer_group': 'consumerGroup',
+          '#shard_id': shard_id,
+          '#shards': 'shards',
+          '#stream_name': 'streamName'
+        },
+        expression_attribute_values: {
+          ':consumer_id': @consumer_id,
+          ':expires': expiry,
+        },
+        condition_expression:
+          'attribute_not_exists(#shards.#shard_id)',
+        update_expression:
+          'SET ' \
+          '#shards.#shard_id.consumerId = :consumer_id, ' \
+          '#shards.#shard_id.expiresIn = :expires'
       )
-      @shards[shard_id] = shard
+      @shards[shard_id] = {
+        'consumerId': @consumer_id,
+        'expiresIn': expiry
+      }
     end
 
     def update_lock(expires_in, shard_id, key)
@@ -165,12 +177,11 @@ module Kinesis
           ':stream_name': @stream_name
         },
         condition_expression:
-          '#consumer_group = :consumer_group AND ' \
-          '#stream_name = :stream_name AND ' \
           '#shards.#shard_id.consumerId = :current_consumer_id AND ' \
           '#shards.#shard_id.expiresIn = :current_expires',
         update_expression:
-          'SET #shards.#shard_id.consumerId = :new_consumer_id, ' \
+          'SET ' \
+          '#shards.#shard_id.consumerId = :new_consumer_id, ' \
           '#shards.#shard_id.expiresIn = :new_expires'
       )
       @shards[shard_id] = {
