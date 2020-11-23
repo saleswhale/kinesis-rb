@@ -45,7 +45,6 @@ module Kinesis
           'streamName': @stream_name
         },
         expression_attribute_names: {
-          '#shards': 'shards',
           '#shard_id': shard_id
         },
         expression_attribute_values: {
@@ -57,10 +56,10 @@ module Kinesis
           'consumerGroup = :consumer_group AND ' \
           'streamName = :stream_name AND ' \
           '(' \
-          '  attribute_not_exists(#shards.#shard_id.checkpoint) OR ' \
-          '  #shards.#shard_id.checkpoint < :sequence_number ' \
+          '  attribute_not_exists(shards.#shard_id.checkpoint) OR ' \
+          '  shards.#shard_id.checkpoint < :sequence_number ' \
           ')',
-        update_expression: 'SET #shards.#shard_id.checkpoint = :sequence_number'
+        update_expression: 'SET shards.#shard_id.checkpoint = :sequence_number'
       )
     end
 
@@ -138,7 +137,7 @@ module Kinesis
           ':expires': expiry
         },
         condition_expression:
-          'attribute_not_exists(#shards.#shard_id)',
+          'attribute_not_exists(shards.#shard_id)',
         update_expression:
           'SET ' \
           'shards.#shard_id.consumerId = :consumer_id, ' \
