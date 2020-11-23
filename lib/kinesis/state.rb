@@ -99,9 +99,12 @@ module Kinesis
 
       if @shards[shard_id].nil?
         create_new_lock(expires_in, shard_id)
+        @logger.info(message: "Created new lock for shard #{shard_id}")
       else # update the lock
         update_lock(expires_in, shard_id, key)
+      @logger.info(message: "Updated lock for shard #{shard_id}")
       end
+      @logger.info(message: "@shards hash", shards: @shards)
 
       true
     rescue StandardError => e
