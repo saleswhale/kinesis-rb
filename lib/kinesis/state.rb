@@ -131,21 +131,18 @@ module Kinesis
         table_name: @dynamodb_table_name,
         key: key,
         expression_attribute_names: {
-          '#consumer_group': 'consumerGroup',
-          '#shard_id': shard_id,
-          '#shards': 'shards',
-          '#stream_name': 'streamName'
+          '#shard_id': shard_id
         },
         expression_attribute_values: {
           ':consumer_id': @consumer_id,
-          ':expires': expiry,
+          ':expires': expiry
         },
         condition_expression:
           'attribute_not_exists(#shards.#shard_id)',
         update_expression:
           'SET ' \
-          '#shards.#shard_id.consumerId = :consumer_id, ' \
-          '#shards.#shard_id.expiresIn = :expires'
+          'shards.#shard_id.consumerId = :consumer_id, ' \
+          'shards.#shard_id.expiresIn = :expires'
       )
       @shards[shard_id] = {
         'consumerId': @consumer_id,
@@ -163,26 +160,21 @@ module Kinesis
         table_name: @dynamodb_table_name,
         key: key,
         expression_attribute_names: {
-          '#consumer_group': 'consumerGroup',
-          '#shard_id': shard_id,
-          '#shards': 'shards',
-          '#stream_name': 'streamName'
+          '#shard_id': shard_id
         },
         expression_attribute_values: {
           ':new_consumer_id': @consumer_id,
           ':new_expires': new_expiry,
           ':current_consumer_id': current_consumer_id,
-          ':current_expires': current_expiry,
-          ':consumer_group': @consumer_group,
-          ':stream_name': @stream_name
+          ':current_expires': current_expiry
         },
         condition_expression:
-          '#shards.#shard_id.consumerId = :current_consumer_id AND ' \
-          '#shards.#shard_id.expiresIn = :current_expires',
+          'shards.#shard_id.consumerId = :current_consumer_id AND ' \
+          'shards.#shard_id.expiresIn = :current_expires',
         update_expression:
           'SET ' \
-          '#shards.#shard_id.consumerId = :new_consumer_id, ' \
-          '#shards.#shard_id.expiresIn = :new_expires'
+          'shards.#shard_id.consumerId = :new_consumer_id, ' \
+          'shards.#shard_id.expiresIn = :new_expires'
       )
       @shards[shard_id] = {
         'consumerId': @consumer_id,
