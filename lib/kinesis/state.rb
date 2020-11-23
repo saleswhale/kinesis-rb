@@ -125,7 +125,10 @@ module Kinesis
     private
 
     def create_new_lock(expires_in, shard_id, key)
-      expiry = expires_in.utc.iso8601
+      shard = {
+        'consumerId': @consumer_id,
+        'expiresIn': expires_in.utc.iso8601
+      }
 
       @dynamodb_client.update_item(
         table_name: @dynamodb_table_name,
@@ -135,20 +138,12 @@ module Kinesis
           '#shards': 'shards'
         },
         expression_attribute_values: {
-          ':consumer_id': @consumer_id,
-          ':expires': expiry
+          ':shard': shard
         },
-        condition_expression:
-          'attribute_not_exists(#shards.#shard_id)',
-        update_expression:
-          'SET ' \
-          '#shards.#shard_id.consumerId = :consumer_id, ' \
-          '#shards.#shard_id.expiresIn = :expires'
+        condition_expression: 'attribute_not_exists(#shards.#shard_id)',
+        update_expression: 'SET #shards.#shard_id = :shard'
       )
-      @shards[shard_id] = {
-        'consumerId': @consumer_id,
-        'expiresIn': expiry
-      }
+      @shards[shard_id] = shard
     end
 
     def update_lock(expires_in, shard_id, key)
