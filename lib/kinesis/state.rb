@@ -66,6 +66,8 @@ module Kinesis
 
     def lock_shard(shard_id, expires_in)
       return true unless plugged_in?
+      @logger.info(message: "@shards hash: #{@shards.to_json}")
+      @logger.info(message: "Locking shard #{shard_id}...")
 
       key = {
         'consumerGroup': @consumer_group,
@@ -102,9 +104,10 @@ module Kinesis
         @logger.info(message: "Created new lock for shard #{shard_id}")
       else # update the lock
         update_lock(expires_in, shard_id, key)
-      @logger.info(message: "Updated lock for shard #{shard_id}")
+        @logger.info(message: "Updated lock for shard #{shard_id}")
       end
-      @logger.info(message: "@shards hash", shards: @shards)
+      @logger.info(message: "Locked shard #{shard_id}")
+      @logger.info(message: "@shards hash: #{@shards.to_json}")
 
       true
     rescue StandardError => e
