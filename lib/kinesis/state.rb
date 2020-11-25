@@ -140,6 +140,7 @@ module Kinesis
     rescue Aws::DynamoDB::Errors::ValidationException => e
       raise e unless retry_once_on_failure
 
+      # possible that `shards -> consumer_group` item doesn't exist yet
       @dynamodb_client.update_item(
         table_name: @dynamodb_table_name,
         key: key,
