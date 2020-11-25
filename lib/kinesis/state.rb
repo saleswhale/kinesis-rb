@@ -117,7 +117,7 @@ module Kinesis
 
     private
 
-    def create_new_lock(expires_in, shard_id, key)
+    def create_new_lock(expires_in, shard_id, key, retry_once_on_failure = true)
       shard = {
         'consumerId': @consumer_id,
         'expiresIn': expires_in.utc.iso8601
@@ -135,7 +135,19 @@ module Kinesis
         condition_expression: 'attribute_not_exists(shards.#shard_id)',
         update_expression: 'SET shards.#shard_id = :shard'
       )
+
       @shards[shard_id] = shard
+    rescue Aws::DynamoDB::Errors::ValidationException => e
+      raise e unless retry_once_on_failure
+
+      @dynamodb_client.update_item(
+        table_name: @dynamodb_table_name,
+        key: key,
+        expression_attribute_values: { ':empty' => {} },
+        update_expression: 'SET shards = if_not_exists(shards, :empty)'
+      )
+      retry_once_on_failure = false
+      retry
     end
 
     def update_lock(expires_in, shard_id, key)
