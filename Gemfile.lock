@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    kinesis (0.0.4)
+    kinesis (0.0.5)
       aws-sdk (~> 2)
       concurrent-ruby (~> 1.0)
 
