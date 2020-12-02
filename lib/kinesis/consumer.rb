@@ -27,12 +27,19 @@ module Kinesis
       @shards = Concurrent::Hash.new
       @stream_name = stream_name
       @logger = logger || Logger.new(STDOUT)
-
-      @state = State.new(dynamodb: dynamodb, stream_name: stream_name, logger: @logger)
+      @state = nil
     end
 
     def each
       trap('INT') { raise SignalException.new('SIGTERM') }
+
+      @stream_info = @kinesis_client.describe_stream(stream_name: @stream_name)
+      @state = State.new(
+        dynamodb: dynamodb,
+        logger: @logger,
+        stream_name: stream_name,
+        stream_retention_period_in_hours: @stream_info.dig(:stream_description, :retention_period_hours)
+      )
 
       loop do
         setup_shards
