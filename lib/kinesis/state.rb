@@ -6,6 +6,8 @@ require 'time'
 module Kinesis
   # Kinesis::State
   class State
+    attr_accessor :shards
+
     # dynamodb[:consumer_group] - Preferrably the name of the application using the gem,
     #                             otherwise will just default to the root dir
     def initialize(dynamodb: {}, stream_name:, stream_retention_period_in_hours: 24, logger:)
@@ -26,19 +28,28 @@ module Kinesis
     def get_iterator_args(shard_id)
       iterator_args = { shard_iterator_type: 'LATEST' }
 
-      if @shards.key?(shard_id)
-        heartbeat = @shards[shard_id]['heartbeat']
+      return iterator_args unless @shards.key?(shard_id)
 
-        if heartbeat && (Time.now - Time.parse(heartbeat) <= @stream_retention_period_in_hours.hours)
-          last_sequence_number = @shards[shard_id]['checkpoint']
+      heartbeat = @shards[shard_id]['heartbeat']
+      last_sequence_number = @shards[shard_id]['checkpoint']
 
-          if last_sequence_number
-            iterator_args = {
-              shard_iterator_type: 'AFTER_SEQUENCE_NUMBER',
-              starting_sequence_number: last_sequence_number
-            }
-          end
-        end
+      return iterator_args unless heartbeat && last_sequence_number
+
+      heartbeat_diff = Time.now.utc - Time.parse(heartbeat).utc
+
+      if heartbeat_diff > (60 * 60 * @stream_retention_period_in_hours)
+        @logger.warn(
+          {
+            message: 'Heartbeat is stale, defaulting to LATEST',
+            sequence_number: last_sequence_number,
+            heartbeat: heartbeat
+          }
+        )
+      else
+        iterator_args = {
+          shard_iterator_type: 'AFTER_SEQUENCE_NUMBER',
+          starting_sequence_number: last_sequence_number
+        }
       end
 
       iterator_args
@@ -103,7 +114,7 @@ module Kinesis
 
       if @shards[shard_id].nil?
         create_new_lock(expires_in, shard_id)
-      else # update the lock
+      else
         update_lock(expires_in, shard_id)
       end
 
@@ -124,9 +135,9 @@ module Kinesis
 
     def create_new_lock(expires_in, shard_id, retry_once_on_failure = true)
       shard = {
-        'consumerId': @consumer_id,
-        'expiresIn': expires_in.utc.iso8601,
-        'heartbeat': Time.now.utc.iso8601
+        'consumerId' => @consumer_id,
+        'expiresIn' => expires_in.utc.iso8601,
+        'heartbeat' => Time.now.utc.iso8601
       }
 
       @dynamodb_client.update_item(
@@ -180,6 +191,9 @@ module Kinesis
         condition_expression:
           'shards.#shard_id.consumerId = :current_consumer_id AND ' \
           'shards.#shard_id.expiresIn = :current_expires',
+
+        # Note: Only update affected keys, don't replace the whole object, so as
+        # to not override rolling updates during `checkpoint` call
         update_expression:
           'SET ' \
           'shards.#shard_id.consumerId = :new_consumer_id, ' \
@@ -187,10 +201,14 @@ module Kinesis
           'shards.#shard_id.heartbeat = :heartbeat'
       )
 
-      @shards[shard_id] = {
-        'consumerId': @consumer_id,
-        'expiresIn': new_expiry
-      }
+      # Note: Only update affected keys, don't replace the whole object
+      @shards[shard_id].merge!(
+        {
+          'consumerId' => @consumer_id,
+          'expiresIn' => new_expiry,
+          'heartbeat' => now
+        }
+      )
     end
 
     def plugged_in?
