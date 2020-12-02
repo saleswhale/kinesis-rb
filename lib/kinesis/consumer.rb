@@ -30,7 +30,7 @@ module Kinesis
       @state = nil
     end
 
-    def each
+    def each(&block)
       trap('INT') { raise SignalException.new('SIGTERM') }
 
       @stream_info = @kinesis_client.describe_stream(stream_name: @stream_name)
@@ -49,7 +49,7 @@ module Kinesis
           # @lock_duration - 1 because we want to refresh just before it expires
           break if (Time.now - setup_time) > (@lock_duration - 1)
 
-          wait_for_records { |item| yield item }
+          wait_for_records { |item| block.call(item) }
 
           sleep READ_INTERVAL # without sleep, CPU utilization shoots up 100%
         end
