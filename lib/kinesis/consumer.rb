@@ -19,6 +19,7 @@ module Kinesis
       logger: nil,
       reader_sleep_time: nil
     )
+      @dynamodb = dynamodb
       @error_queue = Queue.new
       @lock_duration = lock_duration
       @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
@@ -35,9 +36,9 @@ module Kinesis
 
       @stream_info = @kinesis_client.describe_stream(stream_name: @stream_name)
       @state = State.new(
-        dynamodb: dynamodb,
+        dynamodb: @dynamodb,
         logger: @logger,
-        stream_name: stream_name,
+        stream_name: @stream_name,
         stream_retention_period_in_hours: @stream_info.dig(:stream_description, :retention_period_hours)
       )
 
