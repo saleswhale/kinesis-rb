@@ -82,6 +82,8 @@ module Kinesis
           'shards.#shard_id.checkpoint = :sequence_number, ' \
           'shards.#shard_id.heartbeat = :heartbeat'
       )
+
+      @shards[shard_id]['checkpoint'] = sequence_number
     end
 
     def lock_shard(shard_id, expires_in)
