@@ -92,7 +92,7 @@ module Kinesis
       resp = @dynamodb_client.get_item(
         table_name: @dynamodb_table_name,
         consistent_read: true,
-        key: key
+        key: @key
       )
 
       if resp[:item]
