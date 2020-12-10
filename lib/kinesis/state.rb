@@ -10,7 +10,7 @@ module Kinesis
 
     # dynamodb[:consumer_group] - Preferrably the name of the application using the gem,
     #                             otherwise will just default to the root dir
-    def initialize(dynamodb: {}, stream_name:, stream_retention_period_in_hours: 24, logger:)
+    def initialize(dynamodb: {}, stream_name:, stream_retention_period_in_hours:, logger:)
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
       @consumer_id = Socket.gethostbyname(Socket.gethostname).first
       @dynamodb_client = dynamodb[:client]
