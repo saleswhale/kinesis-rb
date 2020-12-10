@@ -19,6 +19,7 @@ module Kinesis
       logger: nil,
       reader_sleep_time: nil
     )
+      @dynamodb = dynamodb
       @error_queue = Queue.new
       @lock_duration = lock_duration
       @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
@@ -27,12 +28,19 @@ module Kinesis
       @shards = Concurrent::Hash.new
       @stream_name = stream_name
       @logger = logger || Logger.new(STDOUT)
-
-      @state = State.new(dynamodb: dynamodb, stream_name: stream_name, logger: @logger)
+      @state = nil
     end
 
-    def each
+    def each(&block)
       trap('INT') { raise SignalException.new('SIGTERM') }
+
+      @stream_info = @kinesis_client.describe_stream(stream_name: @stream_name)
+      @state = State.new(
+        dynamodb: @dynamodb,
+        logger: @logger,
+        stream_name: @stream_name,
+        stream_retention_period_in_hours: @stream_info.dig(:stream_description, :retention_period_hours)
+      )
 
       loop do
         setup_shards
@@ -42,7 +50,7 @@ module Kinesis
           # @lock_duration - 1 because we want to refresh just before it expires
           break if (Time.now - setup_time) > (@lock_duration - 1)
 
-          wait_for_records { |item| yield item }
+          wait_for_records { |item| block.call(item) }
 
           sleep READ_INTERVAL # without sleep, CPU utilization shoots up 100%
         end

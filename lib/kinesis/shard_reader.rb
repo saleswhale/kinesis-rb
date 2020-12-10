@@ -58,7 +58,7 @@ module Kinesis
         sleep_time = [MAX_SLEEP_TIME, @retries * 2].min
         @retries += 1
 
-        @logger.warn(
+        @logger.info(
           {
             message: 'Retryable exception encountered when getting records',
             error: e,
@@ -66,7 +66,7 @@ module Kinesis
           }
         )
       else
-        @logger.warn(
+        @logger.info(
           {
             message: 'Error encountered when getting records',
             error: e,
