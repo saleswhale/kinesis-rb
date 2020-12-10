@@ -38,7 +38,7 @@ module Kinesis
       heartbeat_diff = Time.now.utc - Time.parse(heartbeat).utc
 
       if heartbeat_diff > (60 * 60 * @stream_retention_period_in_hours)
-        @logger.warn(
+        @logger.info(
           {
             message: 'Heartbeat is stale, defaulting to LATEST',
             sequence_number: last_sequence_number,
@@ -124,7 +124,7 @@ module Kinesis
     rescue StandardError => e
       raise e unless Kinesis::RETRYABLE_EXCEPTIONS.include?(e.class.name)
 
-      @logger.warn(
+      @logger.info(
         {
           message: 'Throttled while trying to read lock table in Dynamo'
         }
