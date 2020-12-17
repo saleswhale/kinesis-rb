@@ -138,8 +138,7 @@ module Kinesis
     def create_new_lock(expires_in, shard_id, retry_once_on_failure = true)
       shard = {
         'consumerId' => @consumer_id,
-        'expiresIn' => expires_in.utc.iso8601,
-        'heartbeat' => Time.now.utc.iso8601
+        'expiresIn' => expires_in.utc.iso8601
       }
 
       @dynamodb_client.update_item(
@@ -175,7 +174,6 @@ module Kinesis
       current_expiry = Time.parse(@shards[shard_id]['expiresIn']).iso8601
 
       new_expiry = expires_in.utc.iso8601
-      now = Time.now.utc.iso8601
 
       @dynamodb_client.update_item(
         table_name: @dynamodb_table_name,
@@ -187,8 +185,7 @@ module Kinesis
           ':new_consumer_id': @consumer_id,
           ':new_expires': new_expiry,
           ':current_consumer_id': current_consumer_id,
-          ':current_expires': current_expiry,
-          ':heartbeat': now
+          ':current_expires': current_expiry
         },
         condition_expression:
           'shards.#shard_id.consumerId = :current_consumer_id AND ' \
@@ -199,16 +196,14 @@ module Kinesis
         update_expression:
           'SET ' \
           'shards.#shard_id.consumerId = :new_consumer_id, ' \
-          'shards.#shard_id.expiresIn = :new_expires, ' \
-          'shards.#shard_id.heartbeat = :heartbeat'
+          'shards.#shard_id.expiresIn = :new_expires'
       )
 
       # Note: Only update affected keys, don't replace the whole object
       @shards[shard_id].merge!(
         {
           'consumerId' => @consumer_id,
-          'expiresIn' => new_expiry,
-          'heartbeat' => now
+          'expiresIn' => new_expiry
         }
       )
     end
