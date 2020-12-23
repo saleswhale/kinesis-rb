@@ -74,7 +74,7 @@ module Kinesis
             shard_iterator: @shard_iterator
           }
         )
-        raise e
+        sleep_time = false
       end
 
       sleep_time
