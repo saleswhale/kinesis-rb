@@ -61,7 +61,7 @@ module Kinesis
         @logger.info(
           {
             message: 'Retryable exception encountered when getting records',
-            error: e,
+            error: { code: e.code },
             retry_count: @retries
           }
         )
@@ -69,7 +69,7 @@ module Kinesis
         @logger.info(
           {
             message: 'Error encountered when getting records',
-            error: e,
+            error: { code: e.code },
             shard_iterator: @shard_iterator
           }
         )
