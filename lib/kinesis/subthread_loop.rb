@@ -4,6 +4,7 @@ module Kinesis
   # Kinesis::Subthread
   class Subthread
     attr_reader :thread
+    delegate :alive?, to: :thread
 
     def initialize(_)
       @thread = nil
