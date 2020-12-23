@@ -43,6 +43,7 @@ module Kinesis
             shard_id: @shard_id
           }
         )
+        # TODO: is it possible there are records in resp here?
         return false
       end
 
@@ -73,7 +74,6 @@ module Kinesis
             shard_iterator: @shard_iterator
           }
         )
-
         sleep_time = false
       end
 

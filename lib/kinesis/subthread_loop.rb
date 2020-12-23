@@ -12,10 +12,15 @@ module Kinesis
 
     def start
       @thread = Thread.new { run }
+      @thread.report_on_exception = true
     end
 
     def run
       raise NotImplementedError
+    end
+
+    def alive?
+      @thread.alive?
     end
   end
 
