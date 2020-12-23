@@ -4,7 +4,6 @@ module Kinesis
   # Kinesis::Subthread
   class Subthread
     attr_reader :thread
-    delegate :alive?, to: :thread
 
     def initialize(_)
       @thread = nil
@@ -18,6 +17,10 @@ module Kinesis
 
     def run
       raise NotImplementedError
+    end
+
+    def alive?
+      @thread.alive?
     end
   end
 
