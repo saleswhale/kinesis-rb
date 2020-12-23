@@ -43,6 +43,7 @@ module Kinesis
             shard_id: @shard_id
           }
         )
+        # TODO: is it possible there are records in resp here?
         return false
       end
 
