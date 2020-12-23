@@ -12,6 +12,7 @@ module Kinesis
 
     def start
       @thread = Thread.new { run }
+      @thread.abort_on_exception = true
     end
 
     def run
