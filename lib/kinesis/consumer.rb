@@ -65,6 +65,10 @@ module Kinesis
 
     # 1 thread per shard, will indefinitely push to queue
     def setup_shards
+      @shards.each do |shard_id, shard|
+        shutdown_shard_reader(shard_id) unless shard.alive?
+      end
+
       response = @kinesis_client.list_shards(
         stream_name: @stream_name,
         shard_filter: { type: 'AT_LATEST' }
