@@ -8,7 +8,7 @@ require 'aws-sdk-dynamodb'
 
 describe Kinesis::State do
   let(:logger) { double(warn: nil) }
-  let(:state) { described_class.new(stream_name: 'test', logger: logger) }
+  let(:state) { described_class.new(stream_name: 'test', stream_retention_period_in_hours: 24, logger: logger) }
 
   describe '#get_iterator_args' do
     context 'if shard does not exist' do
