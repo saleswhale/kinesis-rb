@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.summary       = %q{AWS Kinesis wrapper in Ruby}
   spec.homepage      = "https://github.com/saleswhale/kinesis_rb"
   spec.license       = "MIT"
-  spec.required_ruby_version = Gem::Requirement.new(">= 2.3.0")
+  spec.required_ruby_version = Gem::Requirement.new(">= 2.4.0")
 
   spec.metadata["allowed_push_host"] = "we don't use a private gem server"
 
@@ -29,6 +29,8 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "rspec", "~> 3"
+  spec.add_development_dependency 'rspec_junit_formatter'
+  spec.add_development_dependency "rubocop"
 
   spec.add_dependency 'aws-sdk-kinesis', '~> 1'
   spec.add_dependency 'aws-sdk-dynamodb', '~> 1'
