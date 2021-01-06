@@ -27,7 +27,7 @@ module Kinesis
       @record_queue = Queue.new
       @shards = Concurrent::Hash.new
       @stream_name = stream_name
-      @logger = logger || Logger.new(STDOUT)
+      @logger = logger || Logger.new($stdout)
       @state = nil
     end
 
