@@ -10,17 +10,17 @@ describe Kinesis::Consumer do
   let(:kinesis_client) do
     client = Aws::Kinesis::Client.new(stub_responses: true)
     client.stub_responses(:list_shards, {
-      shards: [{
-        hash_key_range: {
-          starting_hash_key: '123',
-          ending_hash_key: '123'
-        },
-        sequence_number_range: {
-          starting_sequence_number: '123'
-        },
-        shard_id: 'dummy_shard_id'
-      }]
-    })
+                            shards: [{
+                              hash_key_range: {
+                                starting_hash_key: '123',
+                                ending_hash_key: '123'
+                              },
+                              sequence_number_range: {
+                                starting_sequence_number: '123'
+                              },
+                              shard_id: 'dummy_shard_id'
+                            }]
+                          })
     client
   end
 

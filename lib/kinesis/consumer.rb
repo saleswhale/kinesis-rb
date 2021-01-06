@@ -32,7 +32,7 @@ module Kinesis
     end
 
     def each(&block)
-      trap('INT') { raise SignalException.new('SIGTERM') }
+      trap('INT') { raise SignalException, 'SIGTERM' }
 
       @stream_info = @kinesis_client.describe_stream(stream_name: @stream_name)
       @state = State.new(
@@ -56,7 +56,7 @@ module Kinesis
         end
       end
     rescue SignalException => e
-      raise e unless ['SIGTERM', 'SIGINT'].include?(e.to_s)
+      raise e unless %w[SIGTERM SIGINT].include?(e.to_s)
     ensure
       shutdown
     end

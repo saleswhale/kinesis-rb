@@ -10,7 +10,7 @@ module Kinesis
 
     # dynamodb[:consumer_group] - Preferrably the name of the application using the gem,
     #                             otherwise will just default to the root dir
-    def initialize(dynamodb: {}, stream_name:, stream_retention_period_in_hours:, logger:)
+    def initialize(stream_name:, stream_retention_period_in_hours:, logger:, dynamodb: {})
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
       @consumer_id = Socket.gethostbyname(Socket.gethostname).first
       @dynamodb_client = dynamodb[:client]
@@ -194,7 +194,7 @@ module Kinesis
           'shards.#shard_id.consumerId = :current_consumer_id AND ' \
           'shards.#shard_id.expiresIn = :current_expires',
 
-        # Note: Only update affected keys, don't replace the whole object, so as
+        # NOTE: Only update affected keys, don't replace the whole object, so as
         # to not override rolling updates during `checkpoint` call
         update_expression:
           'SET ' \
@@ -203,7 +203,7 @@ module Kinesis
           'shards.#shard_id.heartbeat = :heartbeat'
       )
 
-      # Note: Only update affected keys, don't replace the whole object
+      # NOTE: Only update affected keys, don't replace the whole object
       @shards[shard_id].merge!(
         {
           'consumerId' => @consumer_id,

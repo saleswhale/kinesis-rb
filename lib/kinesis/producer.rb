@@ -62,15 +62,15 @@ module Kinesis
         @record_queue << record
         @record_count += 1
 
-        if @record_count >= MAX_RECORDS_COUNT
-          @logger.warn(
-            {
-              message: "Records have reached MAX_RECORDS_COUNT (#{MAX_RECORDS_COUNT})! Flushing records"
-            }
-          )
+        next unless @record_count >= MAX_RECORDS_COUNT
 
-          break
-        end
+        @logger.warn(
+          {
+            message: "Records have reached MAX_RECORDS_COUNT (#{MAX_RECORDS_COUNT})! Flushing records"
+          }
+        )
+
+        break
       end
 
       flush_records
