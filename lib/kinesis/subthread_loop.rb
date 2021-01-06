@@ -33,11 +33,9 @@ module Kinesis
       loop do
         sleep_time = process
 
-        if sleep_time
-          sleep sleep_time
-        else # sleep_time is false or nil
-          break
-        end
+        break unless sleep_time
+
+        sleep sleep_time
       end
     end
 

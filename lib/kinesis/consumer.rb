@@ -27,12 +27,12 @@ module Kinesis
       @record_queue = Queue.new
       @shards = Concurrent::Hash.new
       @stream_name = stream_name
-      @logger = logger || Logger.new(STDOUT)
+      @logger = logger || Logger.new($stdout)
       @state = nil
     end
 
     def each(&block)
-      trap('INT') { raise SignalException.new('SIGTERM') }
+      trap('INT') { raise SignalException, 'SIGTERM' }
 
       @stream_info = @kinesis_client.describe_stream(stream_name: @stream_name)
       @state = State.new(
@@ -56,7 +56,7 @@ module Kinesis
         end
       end
     rescue SignalException => e
-      raise e unless ['SIGTERM', 'SIGINT'].include?(e.to_s)
+      raise e unless %w[SIGTERM SIGINT].include?(e.to_s)
     ensure
       shutdown
     end
@@ -148,7 +148,7 @@ module Kinesis
         stream_name: @stream_name,
         shard_id: shard_id,
         **iterator_args
-      ).dig(:shard_iterator)
+      )[:shard_iterator]
     end
   end
 end
