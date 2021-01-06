@@ -5,4 +5,4 @@ require 'bundler/setup'
 require 'kinesis'
 
 Bundler.require(:development)
-$TESTING = true
+$TESTING = true # rubocop:disable Style/GlobalVars
