@@ -1,6 +1,9 @@
 AllCops:
   TargetRubyVersion: 2.4
 
+Metrics/BlockLength:
+  Max: 60
+
 Metrics/MethodLength:
   Description: 'Avoid methods longer than 55 lines of code.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#short-methods'
