@@ -135,7 +135,7 @@ module Kinesis
 
     private
 
-    def create_new_lock(expires_in, shard_id, retry_once_on_failure = true)
+    def create_new_lock(expires_in, shard_id, retry_once_on_failure: true)
       shard = {
         'consumerId' => @consumer_id,
         'expiresIn' => expires_in.utc.iso8601,

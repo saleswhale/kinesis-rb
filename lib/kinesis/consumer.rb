@@ -148,7 +148,7 @@ module Kinesis
         stream_name: @stream_name,
         shard_id: shard_id,
         **iterator_args
-      ).dig(:shard_iterator)
+      )[:shard_iterator]
     end
   end
 end
