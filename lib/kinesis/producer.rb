@@ -14,7 +14,14 @@ module Kinesis
     MAX_RECORDS_SIZE = (2**20)
     MAX_RECORDS_COUNT = 500
 
-    def initialize(stream_name:, buffer_time:, record_queue:, logger: nil)
+    def initialize(
+      stream_name:,
+      buffer_time:,
+      record_queue:,
+      kinesis: { client: nil },
+      logger: nil)
+      @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
+
       @buffer_time = buffer_time
       @logger = logger || Logger.new(STDOUT)
       @main_record_queue = record_queue
@@ -101,10 +108,17 @@ module Kinesis
 
   # Kinesis::Producer
   class Producer
-    def initialize(stream_name:, buffer_time: 0.5)
+    def initialize(
+      stream_name:,
+      buffer_time: 0.5,
+      kinesis: { client: nil },
+      logger: nil
+    )
       @record_queue = Queue.new
       @async_producer = AsyncProducer.new(
         record_queue: @record_queue,
+        kinesis: kinesis,
+        logger: logger,
         stream_name: stream_name,
         buffer_time: buffer_time
       )
