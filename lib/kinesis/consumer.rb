@@ -10,6 +10,7 @@ module Kinesis
   class Consumer
     LOCK_DURATION = 30 # seconds
     READ_INTERVAL = 0.05 # seconds
+    MAX_RECORDS = 1000
 
     def initialize(
       stream_name:,
@@ -24,7 +25,7 @@ module Kinesis
       @lock_duration = lock_duration
       @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
-      @record_queue = Queue.new
+      @record_queue = SizedQueue.new(MAX_RECORDS)
       @shards = Concurrent::Hash.new
       @stream_name = stream_name
       @logger = logger || Logger.new($stdout)
