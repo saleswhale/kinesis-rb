@@ -16,7 +16,7 @@ module Kinesis
 
     def initialize(stream_name:, buffer_time:, record_queue:, logger: nil)
       @buffer_time = buffer_time
-      @logger = logger || Logger.new(STDOUT)
+      @logger = logger || Logger.new($stdout)
       @main_record_queue = record_queue
       @stream_name = stream_name
 
@@ -62,15 +62,15 @@ module Kinesis
         @record_queue << record
         @record_count += 1
 
-        if @record_count >= MAX_RECORDS_COUNT
-          @logger.warn(
-            {
-              message: "Records have reached MAX_RECORDS_COUNT (#{MAX_RECORDS_COUNT})! Flushing records"
-            }
-          )
+        next unless @record_count >= MAX_RECORDS_COUNT
 
-          break
-        end
+        @logger.warn(
+          {
+            message: "Records have reached MAX_RECORDS_COUNT (#{MAX_RECORDS_COUNT})! Flushing records"
+          }
+        )
+
+        break
       end
 
       flush_records

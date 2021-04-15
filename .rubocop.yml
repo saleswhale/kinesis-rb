@@ -1,3 +1,13 @@
+AllCops:
+  TargetRubyVersion: 2.4
+
+Metrics/BlockLength:
+  Max: 60
+
+Metrics/ClassLength:
+  Description: 'Avoid classes longer than 150 lines of code.'
+  Max: 174
+
 Metrics/MethodLength:
   Description: 'Avoid methods longer than 55 lines of code.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#short-methods'
@@ -26,7 +36,3 @@ Metrics/AbcSize:
                  branches, and conditions.
   Reference: 'http://c2.com/cgi/wiki?AbcMetric'
   Max: 30
-
-Metrics/ClassLength:
-  Description: 'Avoid classes longer than 150 lines of code.'
-  Max: 150
