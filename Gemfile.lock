@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    kinesis (0.0.7)
+    kinesis (0.0.8)
       aws-sdk (~> 2)
       concurrent-ruby (~> 1.0)
 
@@ -9,7 +9,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     ast (2.4.1)
-    aws-eventstream (1.1.0)
+    aws-eventstream (1.1.1)
     aws-sdk (2.11.632)
       aws-sdk-resources (= 2.11.632)
     aws-sdk-core (2.11.632)
@@ -17,9 +17,9 @@ GEM
       jmespath (~> 1.0)
     aws-sdk-resources (2.11.632)
       aws-sdk-core (= 2.11.632)
-    aws-sigv4 (1.2.2)
+    aws-sigv4 (1.2.3)
       aws-eventstream (~> 1, >= 1.0.2)
-    concurrent-ruby (1.1.7)
+    concurrent-ruby (1.1.8)
     diff-lcs (1.4.4)
     jmespath (1.4.0)
     parallel (1.20.1)
@@ -27,6 +27,8 @@ GEM
       ast (~> 2.4.1)
     rainbow (3.0.0)
     rake (13.0.1)
+    regexp_parser (2.1.1)
+    rexml (3.2.5)
     rspec (3.10.0)
       rspec-core (~> 3.10.0)
       rspec-expectations (~> 3.10.0)

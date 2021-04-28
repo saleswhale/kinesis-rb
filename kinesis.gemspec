@@ -35,4 +35,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rubocop'
 
   spec.add_dependency 'aws-sdk', '~> 2'
+  spec.add_dependency 'concurrent-ruby', '~> 1.0'
 end
