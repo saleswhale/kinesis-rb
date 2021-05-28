@@ -52,7 +52,15 @@ module Kinesis
 
       @shard_iterator = resp[:next_shard_iterator]
 
-      resp[:records].each { |item| @record_queue << [@shard_id, item] }
+      resp[:records].each do |item|
+        @logger.info(
+          {
+            message: 'Adding item from shard',
+            shard_id: @shard_id
+          }
+        )
+        @record_queue << [@shard_id, item]
+      end
 
       @retries = 0
 
