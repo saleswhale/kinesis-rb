@@ -7,7 +7,7 @@ require 'aws-sdk-kinesis'
 require 'aws-sdk-dynamodb'
 
 describe Kinesis::State do
-  let(:logger) { double(warn: nil) }
+  let(:logger) { double }
   let(:state) { described_class.new(stream_name: 'test', stream_retention_period_in_hours: 24, logger: logger) }
 
   describe '#get_iterator_args' do
@@ -46,12 +46,13 @@ describe Kinesis::State do
           state.shards[shard_name]['heartbeat'] = (Time.now.utc - (60 * 60 * 25)).iso8601 # 25 hours ago
         end
 
-        it 'should log a warning' do
-          expect(logger).to receive(:warn)
+        it 'should log the event' do
+          expect(logger).to receive(:info)
           iterator_args
         end
 
         it 'should return LATEST' do
+          allow(logger).to receive(:info)
           expect(iterator_args).to include({ shard_iterator_type: 'LATEST' })
         end
       end
