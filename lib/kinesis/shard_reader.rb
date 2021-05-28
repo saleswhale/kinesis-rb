@@ -48,7 +48,9 @@ module Kinesis
       end
 
       @shard_iterator = resp[:next_shard_iterator]
-      @record_queue << [@shard_id, resp]
+
+      resp[:records].each { |item| @record_queue << [@shard_id, item] }
+
       @retries = 0
 
       sleep_time

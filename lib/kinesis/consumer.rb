@@ -97,15 +97,13 @@ module Kinesis
     def wait_for_records
       return if @record_queue.empty?
 
-      shard_id, resp = @record_queue.pop
+      shard_id, item = @record_queue.pop
 
-      resp[:records].each do |item|
-        @logger.info({ message: 'Got record', item: item })
+      @logger.info({ message: 'Got record', item: item })
 
-        yield item
+      yield item
 
-        save_checkpoint(shard_id, item)
-      end
+      save_checkpoint(shard_id, item)
     end
 
     def save_checkpoint(shard_id, item)
