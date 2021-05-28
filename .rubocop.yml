@@ -16,7 +16,7 @@ Metrics/MethodLength:
 Metrics/ParameterLists:
   Description: 'Avoid parameter lists longer than 6 parameters.'
   StyleGuide: 'https://github.com/bbatsov/ruby-style-guide#too-many-params'
-  Max: 6
+  Max: 8
 
 Metrics/CyclomaticComplexity:
   Description: >-

@@ -6,6 +6,7 @@ module Kinesis
   # Kinesis::ShardReader
   class ShardReader < SubthreadLoop
     DEFAULT_SLEEP_TIME = 1.0
+    DEFAULT_PULL_LIMIT = 10_000
     MAX_SLEEP_TIME = 30.0
 
     def initialize(
@@ -14,7 +15,8 @@ module Kinesis
       record_queue:,
       shard_id:,
       shard_iterator:,
-      sleep_time: nil
+      sleep_time: nil,
+      pull_limit: nil
     )
       @error_queue = error_queue
       @logger = logger
@@ -22,6 +24,7 @@ module Kinesis
       @shard_id = shard_id
       @shard_iterator = shard_iterator
       @sleep_time = sleep_time || DEFAULT_SLEEP_TIME
+      @pull_limit = pull_limit || DEFAULT_PULL_LIMIT
 
       super
     end
@@ -34,7 +37,7 @@ module Kinesis
 
     def process
       sleep_time = @sleep_time
-      resp = @kinesis_client.get_records(shard_iterator: @shard_iterator)
+      resp = @kinesis_client.get_records(shard_iterator: @shard_iterator, limit: @pull_limit)
 
       unless resp[:next_shard_iterator]
         @logger.info(
