@@ -10,7 +10,7 @@ module Kinesis
   class Consumer
     LOCK_DURATION = 30 # seconds
     READ_INTERVAL = 0.05 # seconds
-    MAX_RECORDS = 1000
+    DEFAULT_PUSH_LIMIT = 1000
 
     def initialize(
       stream_name:,
@@ -18,17 +18,20 @@ module Kinesis
       kinesis: { client: nil },
       lock_duration: LOCK_DURATION,
       logger: nil,
-      reader_sleep_time: nil
+      reader_sleep_time: nil,
+      push_limit: DEFAULT_PUSH_LIMIT,
+      pull_limit: nil
     )
       @dynamodb = dynamodb
       @error_queue = Queue.new
       @lock_duration = lock_duration
       @kinesis_client = kinesis[:client] || Aws::Kinesis::Client.new
       @reader_sleep_time = reader_sleep_time
-      @record_queue = SizedQueue.new(MAX_RECORDS)
+      @record_queue = SizedQueue.new(push_limit)
       @shards = Concurrent::Hash.new
       @stream_name = stream_name
       @logger = logger || Logger.new($stdout)
+      @pull_limit = pull_limit
       @state = nil
     end
 
@@ -97,15 +100,13 @@ module Kinesis
     def wait_for_records
       return if @record_queue.empty?
 
-      shard_id, resp = @record_queue.pop
+      shard_id, item = @record_queue.pop
 
-      resp[:records].each do |item|
-        @logger.info({ message: 'Got record', item: item })
+      @logger.info({ message: 'Got record', item: item })
 
-        yield item
+      yield item
 
-        save_checkpoint(shard_id, item)
-      end
+      save_checkpoint(shard_id, item)
     end
 
     def save_checkpoint(shard_id, item)
@@ -133,7 +134,8 @@ module Kinesis
         record_queue: @record_queue,
         shard_id: shard_id,
         shard_iterator: shard_iterator,
-        sleep_time: @reader_sleep_time
+        sleep_time: @reader_sleep_time,
+        pull_limit: @pull_limit
       )
     end
 
