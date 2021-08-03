@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'active_support/core_ext/hash/except'
 require 'concurrent/hash'
 require 'kinesis/shard_reader'
 require 'kinesis/state'
@@ -102,7 +103,10 @@ module Kinesis
 
       shard_id, item = @record_queue.pop
 
-      @logger.info({ message: 'Got record', item: item })
+      @logger.info({
+        message: 'Got record',
+        item: item.except(:data)
+      })
 
       yield item
 
