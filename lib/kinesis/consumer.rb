@@ -96,10 +96,12 @@ module Kinesis
 
       shard_id, item = @record_queue.pop
 
-      @logger.info({
-        message: 'Got record',
-        item: item.except(:data)
-      })
+      @logger.info(
+        {
+          message: 'Got record',
+          item: item.except(:data)
+        }
+      )
 
       yield item
 
