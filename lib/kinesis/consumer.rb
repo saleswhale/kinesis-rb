@@ -81,21 +81,14 @@ module Kinesis
 
       response.shards.each do |shard_data|
         shard_id = shard_data[:shard_id]
+        shard_locked = @state.lock_shard(shard_id, Time.now + LOCK_DURATION)
 
-        lock_shard(shard_id)
-
-        create_shard_reader(shard_id) unless @shards.key?(shard_id)
+        if shard_locked
+          start_shard_reader(shard_id) unless @shards.key?(shard_id)
+        else
+          shutdown_shard_reader(shard_id)
+        end
       end
-    end
-
-    # lock when able
-    def lock_shard(shard_id)
-      shard_locked = @state.lock_shard(shard_id, Time.now + LOCK_DURATION)
-
-      return if shard_locked
-
-      # we somehow lost the lock, shutdown the reader
-      shutdown_shard_reader(shard_id) if @shards.keys.include?(shard_id)
     end
 
     def wait_for_records
@@ -129,7 +122,7 @@ module Kinesis
       @shards.delete(shard_id)
     end
 
-    def create_shard_reader(shard_id)
+    def start_shard_reader(shard_id)
       shard_iterator = get_shard_iterator(shard_id)
 
       @shards[shard_id] = Kinesis::ShardReader.new(
