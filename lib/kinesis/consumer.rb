@@ -99,7 +99,9 @@ module Kinesis
       @logger.info(
         {
           message: 'Got record',
-          item: item.except(:data)
+          item_approximate_arrival_timestamp: item.approximate_arrival_timestamp,
+          item_partition_key: item.partition_key,
+          item_sequence_number: item.sequence_number
         }
       )
 
