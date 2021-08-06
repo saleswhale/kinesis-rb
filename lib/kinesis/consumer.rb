@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'active_support/core_ext/hash/except'
 require 'concurrent/hash'
 require 'kinesis/shard_reader'
 require 'kinesis/state'
@@ -99,7 +98,9 @@ module Kinesis
       @logger.info(
         {
           message: 'Got record',
-          item: item.except(:data)
+          item_approximate_arrival_timestamp: item.approximate_arrival_timestamp,
+          item_partition_key: item.partition_key,
+          item_sequence_number: item.sequence_number
         }
       )
 
