@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'active_support/core_ext/hash/except'
 require 'concurrent/hash'
 require 'kinesis/shard_reader'
 require 'kinesis/state'
