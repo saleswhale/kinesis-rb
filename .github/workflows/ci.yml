@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+      
+      kinesis:
+        image: localstack/localstack
+        env:
+          SERVICES: kinesis
+          DEFAULT_REGION: us-east-1
+          KINESIS_PROVIDER: kinesalite
+        ports:
+          - 4566:4566
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 3.2.0
+        bundler-cache: true
+    
+    - name: Lint Ruby
+      run: bundle exec rubocop
+    
+    - name: Run tests
+      run: bundle exec rspec
+      env:
+        AWS_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        DYNAMODB_ENDPOINT: http://localhost:8000
+        KINESIS_ENDPOINT: http://localhost:4566
+    
+    - name: Store test results
+      run: |
+        mkdir -p test-results
+        bundle exec rspec \
+          --format progress \
+          --format RspecJunitFormatter \
+          --out test-results/rspec.xml
+      if: always()
+      env:
+        AWS_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        DYNAMODB_ENDPOINT: http://localhost:8000
+        KINESIS_ENDPOINT: http://localhost:4566
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results
+      if: always()
+    
+    - name: Post to Slack on failure
+      if: failure()
+      uses: slackapi/slack-github-action@v1.19.0
+      with:
+        channel-id: "api-automation-test-result"
+        slack-message: "Kinesis CI: FAILURE :x: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      continue-on-error: true 
