@@ -9,17 +9,26 @@ describe Kinesis::EnhancedShardReader do
   let(:record_queue) { Queue.new }
   let(:logger) { double('Logger', info: nil, error: nil) }
   let(:kinesis_client) { instance_double(Aws::Kinesis::Client) }
-  let(:subscription) { double('Subscription') }
+  let(:subscription) { double('Subscription', close: nil) }
   let(:event_stream) { double('EventStream') }
   let(:thread) { double('Thread', alive?: true, kill: nil) }
 
+  before do
+    # Mock Thread.new to both execute the block and return our mock thread
+    allow(Thread).to receive(:new) do |&block|
+      block&.call
+      thread
+    end
+
+    # Mock the subscription behavior
+    allow(kinesis_client).to receive(:subscribe_to_shard).and_return(subscription)
+    allow(subscription).to receive(:on_event_stream).and_yield(event_stream)
+    allow(event_stream).to receive(:on_record_event)
+    allow(event_stream).to receive(:on_error_event)
+    allow(subscription).to receive(:wait)
+  end
+
   subject do
-    # Mock Thread.new to return our mock thread
-    allow(Thread).to receive(:new).and_return(thread)
-
-    # Allow the block to be executed
-    allow(Thread).to receive(:new).and_yield
-
     described_class.new(
       error_queue: error_queue,
       logger: logger,
@@ -30,15 +39,6 @@ describe Kinesis::EnhancedShardReader do
       consumer_arn: 'test-consumer-arn',
       starting_position: { type: 'LATEST' }
     )
-  end
-
-  before do
-    # Mock the subscription behavior
-    allow(kinesis_client).to receive(:subscribe_to_shard).and_return(subscription)
-    allow(subscription).to receive(:on_event_stream).and_yield(event_stream)
-    allow(event_stream).to receive(:on_record_event)
-    allow(event_stream).to receive(:on_error_event)
-    allow(subscription).to receive(:wait)
   end
 
   describe '#initialize' do
@@ -55,10 +55,11 @@ describe Kinesis::EnhancedShardReader do
 
   describe '#shutdown' do
     it 'closes the subscription' do
-      # Set the instance variable directly
+      # Create the reader and set the subscription
       reader = subject
       reader.instance_variable_set(:@subscription, subscription)
 
+      # Expect the subscription to be closed
       expect(subscription).to receive(:close)
 
       reader.shutdown

@@ -86,8 +86,8 @@ module Kinesis
       return unless @use_enhanced_fan_out
 
       begin
-        # Check if consumer already exists
-        @kinesis_client.describe_consumer(
+        # Check if consumer already exists - use describe_stream_consumer instead of describe_consumer
+        @kinesis_client.describe_stream_consumer(
           consumer_arn: consumer_arn
         )
         @logger.info("Using existing consumer: #{@consumer_name}")

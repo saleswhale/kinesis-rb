@@ -46,9 +46,9 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
                             }]
                           })
 
-    # Stub describe_consumer (existing consumer)
+    # Stub describe_stream_consumer (existing consumer)
     consumer_arn = 'arn:aws:kinesis:us-east-1:123456789012:stream/test-stream/consumer/test-consumer'
-    client.stub_responses(:describe_consumer, {
+    client.stub_responses(:describe_stream_consumer, {
                             consumer_description: {
                               consumer_name: 'test-consumer',
                               consumer_arn: consumer_arn,
@@ -106,7 +106,7 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
   end
 
   it 'registers a consumer when initialized' do
-    expect(kinesis_client).to receive(:describe_consumer)
+    expect(kinesis_client).to receive(:describe_stream_consumer)
     subject
   end
 
@@ -118,7 +118,7 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
   context 'when consumer does not exist' do
     before do
       # First call raises ResourceNotFoundException, second call succeeds
-      allow(kinesis_client).to receive(:describe_consumer)
+      allow(kinesis_client).to receive(:describe_stream_consumer)
         .and_raise(Aws::Kinesis::Errors::ResourceNotFoundException.new(nil, 'Not found'))
         .once
 
