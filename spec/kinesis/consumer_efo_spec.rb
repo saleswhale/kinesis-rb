@@ -6,6 +6,9 @@ require 'kinesis/consumer'
 
 # rubocop:disable Metrics/BlockLength
 describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
+  let(:stream_arn) { 'arn:aws:kinesis:us-east-1:123456789012:stream/test-stream' }
+  let(:consumer_arn) { "#{stream_arn}/consumer/test-consumer" }
+  
   let(:kinesis_client) do
     client = Aws::Kinesis::Client.new(stub_responses: true)
 
@@ -13,7 +16,7 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
     client.stub_responses(:describe_stream, {
                             stream_description: {
                               stream_name: 'test-stream',
-                              stream_arn: 'arn:aws:kinesis:us-east-1:123456789012:stream/test-stream',
+                              stream_arn: stream_arn,
                               stream_status: 'ACTIVE',
                               stream_creation_timestamp: Time.now,
                               retention_period_hours: 24,
@@ -47,13 +50,13 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
                           })
 
     # Stub describe_stream_consumer (existing consumer)
-    consumer_arn = 'arn:aws:kinesis:us-east-1:123456789012:stream/test-stream/consumer/test-consumer'
     client.stub_responses(:describe_stream_consumer, {
                             consumer_description: {
                               consumer_name: 'test-consumer',
                               consumer_arn: consumer_arn,
                               consumer_status: 'ACTIVE',
-                              consumer_creation_timestamp: Time.now
+                              consumer_creation_timestamp: Time.now,
+                              stream_arn: stream_arn
                             }
                           })
 
