@@ -2,7 +2,7 @@
 
 module Kinesis
   # Reads records from a Kinesis shard using Enhanced Fan-Out
-  class EnhancedShardReader
+  class EnhancedShardReader < SubthreadLoop
     DEFAULT_SLEEP_TIME = 1.0
 
     def initialize(
@@ -22,17 +22,12 @@ module Kinesis
       @starting_position = starting_position
       @subscription = nil
 
-      @thread = Thread.new do
-        read_with_enhanced_fan_out
-      end
-    end
-
-    def alive?
-      @thread.alive?
+      super(nil) # Call parent initializer
     end
 
     def shutdown
-      @thread.kill if @thread.alive?
+      # Use the same approach as ShardReader
+      thread&.exit
 
       return unless @subscription
 
@@ -45,6 +40,15 @@ module Kinesis
     end
 
     private
+
+    def preprocess
+      # No preprocessing needed
+    end
+
+    def process
+      read_with_enhanced_fan_out
+      @sleep_time # Return sleep time for the loop
+    end
 
     def read_with_enhanced_fan_out
       @subscription = @kinesis_client.subscribe_to_shard(
@@ -66,11 +70,13 @@ module Kinesis
 
       # This will block until the subscription is closed
       @subscription.wait
+
+      # After subscription ends, we need to raise an error to trigger a retry
+      raise StandardError, "Subscription ended for shard #{@shard_id}, will retry"
     rescue StandardError => e
       @error_queue << e
       @logger.error("Error setting up enhanced fan-out for shard #{@shard_id}: #{e.message}")
-      sleep @sleep_time
-      retry
+      @sleep_time # Return sleep time for retry
     end
 
     def process_records(records)

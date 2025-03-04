@@ -11,13 +11,12 @@ describe Kinesis::EnhancedShardReader do
   let(:kinesis_client) { instance_double(Aws::Kinesis::Client) }
   let(:subscription) { double('Subscription', close: nil) }
   let(:event_stream) { double('EventStream') }
-  let(:thread) { double('Thread', alive?: true, kill: nil) }
 
   before do
-    # Mock Thread.new to both execute the block and return our mock thread
-    allow(Thread).to receive(:new) do |&block|
-      block&.call
-      thread
+    # Mock the SubthreadLoop behavior
+    allow_any_instance_of(Kinesis::SubthreadLoop).to receive(:run) do |instance|
+      # Call process once to simulate the loop
+      instance.send(:process)
     end
 
     # Mock the subscription behavior
@@ -49,7 +48,8 @@ describe Kinesis::EnhancedShardReader do
         starting_position: { type: 'LATEST' }
       )
 
-      subject
+      # Trigger the process method
+      subject.send(:process)
     end
   end
 
