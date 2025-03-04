@@ -9,19 +9,40 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
   let(:kinesis_client) do
     client = Aws::Kinesis::Client.new(stub_responses: true)
 
-    # Stub describe_stream
+    # Stub describe_stream with all required parameters
     client.stub_responses(:describe_stream, {
                             stream_description: {
+                              stream_name: 'test-stream',
                               stream_arn: 'arn:aws:kinesis:us-east-1:123456789012:stream/test-stream',
+                              stream_status: 'ACTIVE',
+                              stream_creation_timestamp: Time.now,
                               retention_period_hours: 24,
-                              stream_status: 'ACTIVE'
+                              shards: [{
+                                shard_id: 'shardId-000000000000',
+                                hash_key_range: {
+                                  starting_hash_key: '0',
+                                  ending_hash_key: '340282366920938463463374607431768211455'
+                                },
+                                sequence_number_range: {
+                                  starting_sequence_number: '49590338271490256608559692538361571095921575989136588898'
+                                }
+                              }],
+                              has_more_shards: false,
+                              enhanced_monitoring: []
                             }
                           })
 
     # Stub list_shards
     client.stub_responses(:list_shards, {
                             shards: [{
-                              shard_id: 'shardId-000000000000'
+                              shard_id: 'shardId-000000000000',
+                              hash_key_range: {
+                                starting_hash_key: '0',
+                                ending_hash_key: '340282366920938463463374607431768211455'
+                              },
+                              sequence_number_range: {
+                                starting_sequence_number: '49590338271490256608559692538361571095921575989136588898'
+                              }
                             }]
                           })
 
@@ -31,12 +52,23 @@ describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
                             consumer_description: {
                               consumer_name: 'test-consumer',
                               consumer_arn: consumer_arn,
-                              consumer_status: 'ACTIVE'
+                              consumer_status: 'ACTIVE',
+                              consumer_creation_timestamp: Time.now
                             }
                           })
 
     # Stub subscribe_to_shard
     client.stub_responses(:subscribe_to_shard, {})
+
+    # Stub register_stream_consumer
+    client.stub_responses(:register_stream_consumer, {
+                            consumer: {
+                              consumer_name: 'test-consumer',
+                              consumer_arn: consumer_arn,
+                              consumer_status: 'CREATING',
+                              consumer_creation_timestamp: Time.now
+                            }
+                          })
 
     client
   end

@@ -40,8 +40,7 @@ module Kinesis
       @use_enhanced_fan_out = use_enhanced_fan_out
       @consumer_name = consumer_name
 
-      return unless @use_enhanced_fan_out
-      return unless @consumer_name.nil?
+      return unless @use_enhanced_fan_out && @consumer_name.nil?
 
       raise ArgumentError,
             'consumer_name is required when using enhanced fan-out'

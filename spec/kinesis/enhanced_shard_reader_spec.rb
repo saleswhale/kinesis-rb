@@ -11,8 +11,15 @@ describe Kinesis::EnhancedShardReader do
   let(:kinesis_client) { instance_double(Aws::Kinesis::Client) }
   let(:subscription) { double('Subscription') }
   let(:event_stream) { double('EventStream') }
+  let(:thread) { double('Thread', alive?: true, kill: nil) }
 
   subject do
+    # Mock Thread.new to return our mock thread
+    allow(Thread).to receive(:new).and_return(thread)
+
+    # Allow the block to be executed
+    allow(Thread).to receive(:new).and_yield
+
     described_class.new(
       error_queue: error_queue,
       logger: logger,
@@ -32,9 +39,6 @@ describe Kinesis::EnhancedShardReader do
     allow(event_stream).to receive(:on_record_event)
     allow(event_stream).to receive(:on_error_event)
     allow(subscription).to receive(:wait)
-
-    # Allow thread to be killed without actually creating one
-    allow(Thread).to receive(:new).and_yield
   end
 
   describe '#initialize' do
@@ -51,9 +55,13 @@ describe Kinesis::EnhancedShardReader do
 
   describe '#shutdown' do
     it 'closes the subscription' do
+      # Set the instance variable directly
+      reader = subject
+      reader.instance_variable_set(:@subscription, subscription)
+
       expect(subscription).to receive(:close)
 
-      subject.shutdown
+      reader.shutdown
     end
   end
 
