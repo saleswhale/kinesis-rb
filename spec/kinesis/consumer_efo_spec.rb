@@ -88,8 +88,14 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
     Aws::DynamoDB::Client.new(stub_responses: true)
   end
 
+  let(:state) do
+    instance_double(Kinesis::State,
+                    lock_shard: true,
+                    get_iterator_args: { shard_iterator_type: 'LATEST' })
+  end
+
   subject do
-    described_class.new(
+    consumer = described_class.new(
       stream_name: 'test-stream',
       dynamodb: {
         client: dynamodb_client,
@@ -102,6 +108,17 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
       use_enhanced_fan_out: true,
       consumer_name: 'test-consumer'
     )
+
+    # Set up the consumer for testing
+    consumer.instance_variable_set(:@stream_info, {
+                                     stream_description: {
+                                       stream_arn: stream_arn,
+                                       retention_period_hours: 24
+                                     }
+                                   })
+    consumer.instance_variable_set(:@state, state)
+
+    consumer
   end
 
   before do
@@ -110,20 +127,17 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
     allow(enhanced_reader).to receive(:alive?).and_return(true)
     allow(enhanced_reader).to receive(:shutdown)
     allow(Kinesis::EnhancedShardReader).to receive(:new).and_return(enhanced_reader)
-
-    # Mock State to avoid DynamoDB interactions
-    allow_any_instance_of(Kinesis::State).to receive(:lock_shard).and_return(true)
-    allow_any_instance_of(Kinesis::State).to receive(:get_iterator_args).and_return({ shard_iterator_type: 'LATEST' })
   end
 
   it 'registers a consumer when initialized' do
+    # We need to test the register_consumer method directly
     expect(kinesis_client).to receive(:describe_stream_consumer)
-    subject
+    subject.send(:register_consumer)
   end
 
   it 'uses EnhancedShardReader for shards' do
     # We need to verify that start_enhanced_shard_reader is called
-    expect_any_instance_of(Kinesis::Consumer).to receive(:start_enhanced_shard_reader)
+    expect(subject).to receive(:start_enhanced_shard_reader)
     subject.send(:setup_shards)
   end
 
@@ -141,7 +155,7 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
 
     it 'creates a new consumer' do
       expect(kinesis_client).to receive(:register_stream_consumer)
-      subject
+      subject.send(:register_consumer)
     end
   end
 end
