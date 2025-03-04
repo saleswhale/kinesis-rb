@@ -2,6 +2,7 @@
 
 require 'concurrent/hash'
 require 'kinesis/shard_reader'
+require 'kinesis/enhanced_shard_reader'
 require 'kinesis/state'
 require 'logger'
 
@@ -20,7 +21,9 @@ module Kinesis
       logger: nil,
       reader_sleep_time: nil,
       push_limit: DEFAULT_PUSH_LIMIT,
-      pull_limit: nil
+      pull_limit: nil,
+      use_enhanced_fan_out: false,
+      consumer_name: nil
     )
       @dynamodb = dynamodb
       @error_queue = Queue.new
@@ -33,6 +36,12 @@ module Kinesis
       @logger = logger || Logger.new($stdout)
       @pull_limit = pull_limit
       @state = nil
+      @use_enhanced_fan_out = use_enhanced_fan_out
+      @consumer_name = consumer_name
+      
+      if @use_enhanced_fan_out && @consumer_name.nil?
+        raise ArgumentError, "consumer_name is required when using enhanced fan-out"
+      end
     end
 
     def each(&block)
@@ -45,6 +54,9 @@ module Kinesis
         stream_name: @stream_name,
         stream_retention_period_in_hours: @stream_info.dig(:stream_description, :retention_period_hours)
       )
+
+      # Register consumer if using enhanced fan-out
+      register_consumer if @use_enhanced_fan_out
 
       loop do
         setup_shards
@@ -66,6 +78,33 @@ module Kinesis
     end
 
     private
+
+    def register_consumer
+      return unless @use_enhanced_fan_out
+      
+      begin
+        # Check if consumer already exists
+        @kinesis_client.describe_consumer(
+          consumer_arn: consumer_arn
+        )
+        @logger.info("Using existing consumer: #{@consumer_name}")
+      rescue Aws::Kinesis::Errors::ResourceNotFoundException
+        # Create consumer if it doesn't exist
+        response = @kinesis_client.register_stream_consumer(
+          stream_arn: stream_arn,
+          consumer_name: @consumer_name
+        )
+        @logger.info("Registered new consumer: #{response.consumer.consumer_name}")
+      end
+    end
+
+    def stream_arn
+      @stream_info.dig(:stream_description, :stream_arn)
+    end
+
+    def consumer_arn
+      "#{stream_arn}/consumer/#{@consumer_name}"
+    end
 
     # 1 thread per shard, will indefinitely push to queue
     def setup_shards
@@ -136,6 +175,32 @@ module Kinesis
         shard_iterator: shard_iterator,
         sleep_time: @reader_sleep_time,
         pull_limit: @pull_limit
+      )
+    end
+
+    def start_enhanced_shard_reader(shard_id)
+      iterator_args = @state.get_iterator_args(shard_id)
+      starting_position = {
+        type: iterator_args[:shard_iterator_type]
+      }
+      
+      # Add sequence number if needed
+      if iterator_args[:shard_iterator_type] == 'AFTER_SEQUENCE_NUMBER' || 
+         iterator_args[:shard_iterator_type] == 'AT_SEQUENCE_NUMBER'
+        starting_position[:sequence_number] = iterator_args[:starting_sequence_number]
+      elsif iterator_args[:shard_iterator_type] == 'AT_TIMESTAMP'
+        starting_position[:timestamp] = iterator_args[:timestamp]
+      end
+
+      @shards[shard_id] = Kinesis::EnhancedShardReader.new(
+        error_queue: @error_queue,
+        logger: @logger,
+        record_queue: @record_queue,
+        shard_id: shard_id,
+        sleep_time: @reader_sleep_time,
+        kinesis_client: @kinesis_client,
+        consumer_arn: consumer_arn,
+        starting_position: starting_position
       )
     end
 
