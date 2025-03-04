@@ -125,7 +125,13 @@ module Kinesis
         shard_locked = @state.lock_shard(shard_id, Time.now + LOCK_DURATION)
 
         if shard_locked
-          start_shard_reader(shard_id) unless @shards.key?(shard_id)
+          unless @shards.key?(shard_id)
+            if @use_enhanced_fan_out
+              start_enhanced_shard_reader(shard_id)
+            else
+              start_shard_reader(shard_id)
+            end
+          end
         else
           shutdown_shard_reader(shard_id)
         end
