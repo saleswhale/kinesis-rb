@@ -13,6 +13,7 @@ module Kinesis
     READ_INTERVAL = 0.05 # seconds
     DEFAULT_PUSH_LIMIT = 1000
 
+    # rubocop:disable Metrics/ParameterLists
     def initialize(
       stream_name:,
       dynamodb: { client: nil, table_name: nil, consumer_group: nil },
@@ -38,11 +39,14 @@ module Kinesis
       @state = nil
       @use_enhanced_fan_out = use_enhanced_fan_out
       @consumer_name = consumer_name
-      
-      if @use_enhanced_fan_out && @consumer_name.nil?
-        raise ArgumentError, "consumer_name is required when using enhanced fan-out"
-      end
+
+      return unless @use_enhanced_fan_out
+      return unless @consumer_name.nil?
+
+      raise ArgumentError,
+            'consumer_name is required when using enhanced fan-out'
     end
+    # rubocop:enable Metrics/ParameterLists
 
     def each(&block)
       trap('INT') { raise SignalException, 'SIGTERM' }
@@ -81,7 +85,7 @@ module Kinesis
 
     def register_consumer
       return unless @use_enhanced_fan_out
-      
+
       begin
         # Check if consumer already exists
         @kinesis_client.describe_consumer(
@@ -183,12 +187,12 @@ module Kinesis
       starting_position = {
         type: iterator_args[:shard_iterator_type]
       }
-      
+
       # Add sequence number if needed
-      if iterator_args[:shard_iterator_type] == 'AFTER_SEQUENCE_NUMBER' || 
-         iterator_args[:shard_iterator_type] == 'AT_SEQUENCE_NUMBER'
+      case iterator_args[:shard_iterator_type]
+      when 'AFTER_SEQUENCE_NUMBER', 'AT_SEQUENCE_NUMBER'
         starting_position[:sequence_number] = iterator_args[:starting_sequence_number]
-      elsif iterator_args[:shard_iterator_type] == 'AT_TIMESTAMP'
+      when 'AT_TIMESTAMP'
         starting_position[:timestamp] = iterator_args[:timestamp]
       end
 

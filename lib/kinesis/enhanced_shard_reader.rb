@@ -10,10 +10,7 @@ module Kinesis
       logger:,
       record_queue:,
       shard_id:,
-      sleep_time: nil,
-      kinesis_client:,
-      consumer_arn:,
-      starting_position:
+      kinesis_client:, consumer_arn:, starting_position:, sleep_time: nil
     )
       @error_queue = error_queue
       @logger = logger
@@ -24,7 +21,7 @@ module Kinesis
       @consumer_arn = consumer_arn
       @starting_position = starting_position
       @subscription = nil
-      
+
       @thread = Thread.new do
         read_with_enhanced_fan_out
       end
@@ -36,46 +33,44 @@ module Kinesis
 
     def shutdown
       @thread.kill if @thread.alive?
-      
+
+      return unless @subscription
+
       # Close subscription if it exists
-      if @subscription
-        begin
-          @subscription.close
-        rescue StandardError => e
-          @logger.error("Error closing subscription: #{e.message}")
-        end
+      begin
+        @subscription.close
+      rescue StandardError => e
+        @logger.error("Error closing subscription: #{e.message}")
       end
     end
 
     private
 
     def read_with_enhanced_fan_out
-      begin
-        @subscription = @kinesis_client.subscribe_to_shard(
-          consumer_arn: @consumer_arn,
-          shard_id: @shard_id,
-          starting_position: @starting_position
-        )
+      @subscription = @kinesis_client.subscribe_to_shard(
+        consumer_arn: @consumer_arn,
+        shard_id: @shard_id,
+        starting_position: @starting_position
+      )
 
-        @subscription.on_event_stream do |event_stream|
-          event_stream.on_record_event do |event|
-            process_records(event.records)
-          end
-
-          event_stream.on_error_event do |event|
-            @error_queue << event.error
-            @logger.error("Error in enhanced fan-out subscription for shard #{@shard_id}: #{event.error.message}")
-          end
+      @subscription.on_event_stream do |event_stream|
+        event_stream.on_record_event do |event|
+          process_records(event.records)
         end
 
-        # This will block until the subscription is closed
-        @subscription.wait
-      rescue StandardError => e
-        @error_queue << e
-        @logger.error("Error setting up enhanced fan-out for shard #{@shard_id}: #{e.message}")
-        sleep @sleep_time
-        retry
+        event_stream.on_error_event do |event|
+          @error_queue << event.error
+          @logger.error("Error in enhanced fan-out subscription for shard #{@shard_id}: #{event.error.message}")
+        end
       end
+
+      # This will block until the subscription is closed
+      @subscription.wait
+    rescue StandardError => e
+      @error_queue << e
+      @logger.error("Error setting up enhanced fan-out for shard #{@shard_id}: #{e.message}")
+      sleep @sleep_time
+      retry
     end
 
     def process_records(records)
@@ -84,4 +79,4 @@ module Kinesis
       end
     end
   end
-end 
+end

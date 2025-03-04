@@ -11,7 +11,7 @@ describe Kinesis::EnhancedShardReader do
   let(:kinesis_client) { instance_double(Aws::Kinesis::Client) }
   let(:subscription) { double('Subscription') }
   let(:event_stream) { double('EventStream') }
-  
+
   subject do
     described_class.new(
       error_queue: error_queue,
@@ -32,7 +32,7 @@ describe Kinesis::EnhancedShardReader do
     allow(event_stream).to receive(:on_record_event)
     allow(event_stream).to receive(:on_error_event)
     allow(subscription).to receive(:wait)
-    
+
     # Allow thread to be killed without actually creating one
     allow(Thread).to receive(:new).and_yield
   end
@@ -44,7 +44,7 @@ describe Kinesis::EnhancedShardReader do
         shard_id: 'test-shard-id',
         starting_position: { type: 'LATEST' }
       )
-      
+
       subject
     end
   end
@@ -52,7 +52,7 @@ describe Kinesis::EnhancedShardReader do
   describe '#shutdown' do
     it 'closes the subscription' do
       expect(subscription).to receive(:close)
-      
+
       subject.shutdown
     end
   end
@@ -61,9 +61,9 @@ describe Kinesis::EnhancedShardReader do
     it 'adds records to the queue' do
       record = double('Record')
       subject.send(:process_records, [record])
-      
+
       expect(record_queue.size).to eq(1)
       expect(record_queue.pop).to eq(['test-shard-id', record])
     end
   end
-end 
+end
