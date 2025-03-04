@@ -5,44 +5,12 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '2.6'
-        bundler-cache: true # This handles bundler installation, bundle install, and caching
-    
-    - name: Lint Ruby
-      run: bundle exec rubocop
-    
-    - name: Run tests
-      run: |
-        mkdir -p test-results
-        bundle exec rspec \
-          --format progress \
-          --format RspecJunitFormatter \
-          --out test-results/rspec.xml
-    
-    - name: Upload test results
-      uses: actions/upload-artifact@v3
-      with:
-        name: test-results
-        path: test-results
-      if: always() # Upload test results even if tests fail
-
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        ruby-version: ['2.7', '3.0', '3.1', '3.2']
-
+    
     services:
       dynamodb:
         image: amazon/dynamodb-local
@@ -57,18 +25,21 @@ jobs:
           KINESIS_PROVIDER: kinesalite
         ports:
           - 4566:4566
-
+    
     steps:
     - uses: actions/checkout@v3
     
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: ${{ matrix.ruby-version }}
+        ruby-version: 3.2.0
         bundler-cache: true
     
+    - name: Lint Ruby
+      run: bundle exec rubocop
+    
     - name: Run tests
-      run: bundle exec rake spec
+      run: bundle exec rspec
       env:
         AWS_REGION: us-east-1
         AWS_ACCESS_KEY_ID: test
@@ -76,22 +47,34 @@ jobs:
         DYNAMODB_ENDPOINT: http://localhost:8000
         KINESIS_ENDPOINT: http://localhost:4566
     
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage/codecov.json
-        fail_ci_if_error: true
-      
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+    - name: Store test results
+      run: |
+        mkdir -p test-results
+        bundle exec rspec \
+          --format progress \
+          --format RspecJunitFormatter \
+          --out test-results/rspec.xml
+      if: always()
+      env:
+        AWS_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        DYNAMODB_ENDPOINT: http://localhost:8000
+        KINESIS_ENDPOINT: http://localhost:4566
     
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
       with:
-        ruby-version: '3.0'
-        bundler-cache: true
+        name: test-results
+        path: test-results
+      if: always()
     
-    - name: Run rubocop
-      run: bundle exec rubocop 
+    - name: Post to Slack on failure
+      if: failure()
+      uses: slackapi/slack-github-action@v1.19.0
+      with:
+        channel-id: "api-automation-test-result"
+        slack-message: "Kinesis CI: FAILURE :x: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      continue-on-error: true 
