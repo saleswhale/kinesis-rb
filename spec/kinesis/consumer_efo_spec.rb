@@ -6,7 +6,7 @@ require 'kinesis/consumer'
 require 'aws-sdk-kinesis'
 
 # rubocop:disable Metrics/BlockLength
-describe 'Kinesis::Consumer with Enhanced Fan-Out', integration: true do
+describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
   let(:stream_arn) { 'arn:aws:kinesis:us-east-1:123456789012:stream/test-stream' }
   let(:consumer_arn) { "#{stream_arn}/consumer/test-consumer" }
 
