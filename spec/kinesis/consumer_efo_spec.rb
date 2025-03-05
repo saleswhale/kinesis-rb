@@ -117,7 +117,7 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
                                      }
                                    })
     consumer.instance_variable_set(:@state, state)
-    
+
     # Set the consumer ARN for tests that don't call register_consumer
     consumer.instance_variable_set(:@consumer_arn, consumer_arn)
 
@@ -156,9 +156,9 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
 
       allow(kinesis_client).to receive(:register_stream_consumer).and_return(
         instance_double('Aws::Kinesis::Types::RegisterStreamConsumerOutput',
-                        consumer: instance_double('Aws::Kinesis::Types::Consumer', 
-                                                 consumer_name: 'test-consumer',
-                                                 consumer_arn: consumer_arn))
+                        consumer: instance_double('Aws::Kinesis::Types::Consumer',
+                                                  consumer_name: 'test-consumer',
+                                                  consumer_arn: consumer_arn))
       )
     end
 
@@ -169,19 +169,19 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
       )
       subject.send(:register_consumer)
     end
-    
+
     it 'stores the consumer ARN from the response' do
       subject.instance_variable_set(:@consumer_arn, nil)
       subject.send(:register_consumer)
       expect(subject.send(:consumer_arn)).to eq(consumer_arn)
     end
   end
-  
+
   describe '#consumer_arn' do
     it 'returns the stored consumer ARN' do
       expect(subject.send(:consumer_arn)).to eq(consumer_arn)
     end
-    
+
     it 'raises an error if consumer ARN is not available' do
       subject.instance_variable_set(:@consumer_arn, nil)
       expect { subject.send(:consumer_arn) }.to raise_error(/Consumer ARN not available/)
