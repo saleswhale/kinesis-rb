@@ -33,12 +33,9 @@ module Kinesis
 
       return unless @async_response
 
-      # Close subscription if it exists
-      begin
-        @async_response.close
-      rescue StandardError => e
-        @logger.error("Error closing subscription: #{e.message}")
-      end
+      # No need to close the async_response, it doesn't have a close method
+      # Just log that we're shutting down
+      @logger.info("Shutting down enhanced fan-out for shard #{@shard_id}")
     end
 
     private

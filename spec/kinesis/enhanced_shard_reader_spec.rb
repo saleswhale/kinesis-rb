@@ -11,7 +11,7 @@ describe Kinesis::EnhancedShardReader do
   let(:logger) { instance_double('Logger', info: nil, error: nil, warn: nil) }
   let(:kinesis_client) { instance_double(Aws::Kinesis::AsyncClient) }
   let(:output_stream) { instance_double(Aws::Kinesis::EventStreams::SubscribeToShardEventStream) }
-  let(:async_response) { instance_double('Seahorse::Client::AsyncResponse', wait: nil, close: nil) }
+  let(:async_response) { instance_double('Seahorse::Client::AsyncResponse', wait: nil) }
 
   before do
     # Mock the SubthreadLoop behavior
@@ -77,9 +77,6 @@ describe Kinesis::EnhancedShardReader do
       # Create the reader and set the async_response
       reader = prepare_subject
       reader.instance_variable_set(:@async_response, async_response)
-
-      # Expect the async_response to be closed
-      expect(async_response).to receive(:close)
 
       reader.shutdown
     end
