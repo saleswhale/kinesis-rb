@@ -50,7 +50,6 @@ module Kinesis
           record_queue: @record_queue,
           shard_id: shard_id,
           sleep_time: @reader_sleep_time,
-          kinesis_client: @kinesis_client,
           consumer_arn: consumer_arn,
           starting_position: starting_position
         )

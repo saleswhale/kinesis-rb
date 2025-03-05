@@ -200,5 +200,22 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
       expect { subject.send(:consumer_arn) }.to raise_error(/Consumer ARN not available/)
     end
   end
+
+  describe '#start_enhanced_shard_reader' do
+    it 'creates an EnhancedShardReader with the correct parameters' do
+      # If this test exists, we need to update it
+      expect(Kinesis::EnhancedShardReader).to receive(:new).with(
+        error_queue: anything,
+        logger: anything,
+        record_queue: anything,
+        shard_id: 'shard-id',
+        sleep_time: anything,
+        consumer_arn: anything,
+        starting_position: anything
+      )
+
+      subject.send(:start_enhanced_shard_reader, 'shard-id')
+    end
+  end
 end
 # rubocop:enable Metrics/BlockLength

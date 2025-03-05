@@ -10,14 +10,15 @@ module Kinesis
       logger:,
       record_queue:,
       shard_id:,
-      kinesis_client:, consumer_arn:, starting_position:, sleep_time: nil
+      consumer_arn:,
+      starting_position:,
+      sleep_time: nil
     )
       @error_queue = error_queue
       @logger = logger
       @record_queue = record_queue
       @shard_id = shard_id
       @sleep_time = sleep_time || DEFAULT_SLEEP_TIME
-      @kinesis_client = kinesis_client
       @consumer_arn = consumer_arn
       @starting_position = starting_position
       @subscription = nil
@@ -42,7 +43,8 @@ module Kinesis
     private
 
     def preprocess
-      # No preprocessing needed
+      # Create a fresh Kinesis client for each thread
+      @kinesis_client = Aws::Kinesis::Client.new
     end
 
     def process

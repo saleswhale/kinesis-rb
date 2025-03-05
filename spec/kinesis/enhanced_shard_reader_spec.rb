@@ -20,6 +20,9 @@ describe Kinesis::EnhancedShardReader do
       instance.send(:process)
     end
 
+    # Mock the Kinesis client creation
+    allow(Aws::Kinesis::Client).to receive(:new).and_return(kinesis_client)
+
     # Mock the subscription behavior
     allow(kinesis_client).to receive(:subscribe_to_shard).and_return(subscription)
     allow(subscription).to receive(:on_event_stream).and_yield(event_stream)
@@ -39,7 +42,6 @@ describe Kinesis::EnhancedShardReader do
       record_queue: record_queue,
       shard_id: 'test-shard-id',
       sleep_time: 0.1,
-      kinesis_client: kinesis_client,
       consumer_arn: 'test-consumer-arn',
       starting_position: { type: 'LATEST' }
     )
