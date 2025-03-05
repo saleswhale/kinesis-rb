@@ -2,16 +2,21 @@
 
 require 'concurrent/hash'
 require 'kinesis/shard_reader'
+require 'kinesis/enhanced_shard_reader'
 require 'kinesis/state'
+require 'kinesis/consumer/enhanced_fan_out'
 require 'logger'
 
 module Kinesis
   # Kinesis::Consumer
   class Consumer
+    include EnhancedFanOut
+
     LOCK_DURATION = 30 # seconds
     READ_INTERVAL = 0.05 # seconds
     DEFAULT_PUSH_LIMIT = 1000
 
+    # rubocop:disable Metrics/ParameterLists
     def initialize(
       stream_name:,
       dynamodb: { client: nil, table_name: nil, consumer_group: nil },
@@ -20,7 +25,9 @@ module Kinesis
       logger: nil,
       reader_sleep_time: nil,
       push_limit: DEFAULT_PUSH_LIMIT,
-      pull_limit: nil
+      pull_limit: nil,
+      use_enhanced_fan_out: false,
+      consumer_name: nil
     )
       @dynamodb = dynamodb
       @error_queue = Queue.new
@@ -33,7 +40,15 @@ module Kinesis
       @logger = logger || Logger.new($stdout)
       @pull_limit = pull_limit
       @state = nil
+      @use_enhanced_fan_out = use_enhanced_fan_out
+      @consumer_name = consumer_name
+
+      return unless @use_enhanced_fan_out && @consumer_name.nil?
+
+      raise ArgumentError,
+            'consumer_name is required when using enhanced fan-out'
     end
+    # rubocop:enable Metrics/ParameterLists
 
     def each(&block)
       trap('INT') { raise SignalException, 'SIGTERM' }
@@ -45,6 +60,9 @@ module Kinesis
         stream_name: @stream_name,
         stream_retention_period_in_hours: @stream_info.dig(:stream_description, :retention_period_hours)
       )
+
+      # Register consumer if using enhanced fan-out
+      register_consumer if @use_enhanced_fan_out
 
       loop do
         setup_shards
@@ -83,7 +101,13 @@ module Kinesis
         shard_locked = @state.lock_shard(shard_id, Time.now + LOCK_DURATION)
 
         if shard_locked
-          start_shard_reader(shard_id) unless @shards.key?(shard_id)
+          unless @shards.key?(shard_id)
+            if @use_enhanced_fan_out
+              start_enhanced_shard_reader(shard_id)
+            else
+              start_shard_reader(shard_id)
+            end
+          end
         else
           shutdown_shard_reader(shard_id)
         end
@@ -152,6 +176,10 @@ module Kinesis
         shard_id: shard_id,
         **iterator_args
       )[:shard_iterator]
+    end
+
+    def stream_arn
+      @stream_info.dig(:stream_description, :stream_arn)
     end
   end
 end

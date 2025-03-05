@@ -91,3 +91,15 @@ require 'kinesis/consumer'
 client = Aws::Kinesis::Client.new(access_key_id: 'something_here', secret_access_key: 'something_here')
 consumer = Kinesis::Consumer.new(stream_name: 'your-stream-here', kinesis: { client: client })
 ```
+
+## Enhanced Fan-Out Support
+
+This library supports Kinesis Enhanced Fan-Out, which requires:
+
+- aws-sdk-kinesis gem version 1.10.0 or later
+- Ruby version 2.1 or later
+- http-2 gem version 0.10 or later
+
+Enhanced Fan-Out uses the `Aws::Kinesis::AsyncClient` for HTTP/2 streaming instead of the regular `Client`. This is automatically handled by the library.
+
+```
