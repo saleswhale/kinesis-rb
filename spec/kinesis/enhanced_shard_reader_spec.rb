@@ -7,10 +7,10 @@ require 'kinesis/enhanced_shard_reader'
 describe Kinesis::EnhancedShardReader do
   let(:error_queue) { Queue.new }
   let(:record_queue) { Queue.new }
-  let(:logger) { double('Logger', info: nil, error: nil) }
+  let(:logger) { instance_double('Logger', info: nil, error: nil) }
   let(:kinesis_client) { instance_double(Aws::Kinesis::Client) }
-  let(:subscription) { double('Subscription', close: nil) }
-  let(:event_stream) { double('EventStream') }
+  let(:subscription) { instance_double('Aws::Kinesis::SubscribeToShardOutput', close: nil) }
+  let(:event_stream) { instance_double('Aws::Kinesis::EventStream') }
 
   before do
     # Mock the SubthreadLoop behavior
@@ -68,7 +68,7 @@ describe Kinesis::EnhancedShardReader do
 
   describe '#process_records' do
     it 'adds records to the queue' do
-      record = double('Record')
+      record = instance_double('Aws::Kinesis::Record')
       subject.send(:process_records, [record])
 
       expect(record_queue.size).to eq(1)
