@@ -22,6 +22,7 @@ module Kinesis
       @consumer_arn = consumer_arn
       @starting_position = starting_position
       @subscription = nil
+      @async_response = nil
 
       super(nil) # Call parent initializer
     end
@@ -30,11 +31,11 @@ module Kinesis
       # Use the same approach as ShardReader
       thread&.exit
 
-      return unless @subscription
+      return unless @async_response
 
       # Close subscription if it exists
       begin
-        @subscription.close
+        @async_response.close
       rescue StandardError => e
         @logger.error("Error closing subscription: #{e.message}")
       end
@@ -43,8 +44,8 @@ module Kinesis
     private
 
     def preprocess
-      # Create a fresh Kinesis client for each thread
-      @kinesis_client = Aws::Kinesis::Client.new
+      # Create a fresh Kinesis AsyncClient for HTTP/2 streaming
+      @kinesis_client = Aws::Kinesis::AsyncClient.new
     end
 
     def process
@@ -57,7 +58,6 @@ module Kinesis
 
       begin
         create_subscription
-        setup_event_handlers
         wait_for_events
       rescue JSON::ParserError => e
         handle_json_error(e)
@@ -81,34 +81,37 @@ module Kinesis
         "consumer ARN: #{@consumer_arn}, " \
         "starting position: #{@starting_position.inspect}"
       )
-      @subscription = @kinesis_client.subscribe_to_shard(
+
+      # Create an event stream handler
+      output_stream = Aws::Kinesis::EventStreams::SubscribeToShardEventStream.new
+
+      # Set up event handlers
+      output_stream.on_record_event_event do |event|
+        process_records(event.records)
+      end
+
+      output_stream.on_error_event do |event|
+        error_message = "Error in enhanced fan-out subscription for shard #{@shard_id}: #{event.error.message}"
+        @logger.error(error_message)
+        @error_queue << event.error
+      end
+
+      # Subscribe to the shard with the event stream handler
+      @async_response = @kinesis_client.subscribe_to_shard(
         consumer_arn: @consumer_arn,
         shard_id: @shard_id,
-        starting_position: @starting_position
+        starting_position: @starting_position,
+        output_event_stream_handler: output_stream
       )
 
       @logger.info("Successfully created subscription for shard #{@shard_id}")
     end
 
-    def setup_event_handlers
-      @subscription.on_event_stream do |event_stream|
-        @logger.info("Setting up event handlers for shard #{@shard_id}")
-
-        event_stream.on_record_event do |event|
-          process_records(event.records)
-        end
-
-        event_stream.on_error_event do |event|
-          error_message = "Error in enhanced fan-out subscription for shard #{@shard_id}: #{event.error.message}"
-          @logger.error(error_message)
-          @error_queue << event.error
-        end
-      end
-    end
-
     def wait_for_events
       @logger.info("Waiting for events on shard #{@shard_id}")
-      @subscription.wait
+
+      # Wait for the async response to complete
+      @async_response.wait
 
       # After subscription ends, we need to raise an error to trigger a retry
       @logger.warn("Subscription ended for shard #{@shard_id}, will retry")

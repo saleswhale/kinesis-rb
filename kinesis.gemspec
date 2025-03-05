@@ -37,4 +37,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'aws-sdk-dynamodb', '~> 1'
   spec.add_dependency 'aws-sdk-kinesis', '~> 1'
   spec.add_dependency 'concurrent-ruby', '~> 1.0'
+  spec.add_dependency 'http-2', '~> 0.10'
 end

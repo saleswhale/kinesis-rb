@@ -9,9 +9,9 @@ describe Kinesis::EnhancedShardReader do
   let(:error_queue) { Queue.new }
   let(:record_queue) { Queue.new }
   let(:logger) { instance_double('Logger', info: nil, error: nil, warn: nil) }
-  let(:kinesis_client) { instance_double(Aws::Kinesis::Client) }
-  let(:subscription) { instance_double('Aws::Kinesis::SubscribeToShardOutput', close: nil) }
-  let(:event_stream) { instance_double('Aws::Kinesis::EventStream') }
+  let(:kinesis_client) { instance_double(Aws::Kinesis::AsyncClient) }
+  let(:output_stream) { instance_double(Aws::Kinesis::EventStreams::SubscribeToShardEventStream) }
+  let(:async_response) { instance_double('Seahorse::Client::AsyncResponse', wait: nil, close: nil) }
 
   before do
     # Mock the SubthreadLoop behavior
@@ -20,19 +20,20 @@ describe Kinesis::EnhancedShardReader do
       instance.send(:process)
     end
 
-    # Mock the Kinesis client creation
-    allow(Aws::Kinesis::Client).to receive(:new).and_return(kinesis_client)
+    # Mock the AsyncClient creation
+    allow(Aws::Kinesis::AsyncClient).to receive(:new).and_return(kinesis_client)
 
-    # Mock the subscription behavior
-    allow(kinesis_client).to receive(:subscribe_to_shard).and_return(subscription)
-    allow(subscription).to receive(:on_event_stream).and_yield(event_stream)
-    allow(event_stream).to receive(:on_record_event)
-    allow(event_stream).to receive(:on_error_event)
+    # Mock the EventStream creation
+    allow(Aws::Kinesis::EventStreams::SubscribeToShardEventStream).to receive(:new).and_return(output_stream)
 
-    # Mock wait to avoid the actual blocking behavior
-    allow(subscription).to receive(:wait) do
-      # Don't actually wait or raise in tests
-    end
+    # Mock the event handlers
+    allow(output_stream).to receive(:on_record_event_event).and_yield(
+      instance_double('Aws::Kinesis::Types::RecordEvent', records: [])
+    )
+    allow(output_stream).to receive(:on_error_event)
+
+    # Mock the subscribe_to_shard method
+    allow(kinesis_client).to receive(:subscribe_to_shard).and_return(async_response)
   end
 
   subject do
@@ -62,7 +63,8 @@ describe Kinesis::EnhancedShardReader do
       expect(kinesis_client).to receive(:subscribe_to_shard).with(
         consumer_arn: 'test-consumer-arn',
         shard_id: 'test-shard-id',
-        starting_position: { type: 'LATEST' }
+        starting_position: { type: 'LATEST' },
+        output_event_stream_handler: output_stream
       )
 
       # Trigger the process method
@@ -72,12 +74,12 @@ describe Kinesis::EnhancedShardReader do
 
   describe '#shutdown' do
     it 'closes the subscription' do
-      # Create the reader and set the subscription
+      # Create the reader and set the async_response
       reader = prepare_subject
-      reader.instance_variable_set(:@subscription, subscription)
+      reader.instance_variable_set(:@async_response, async_response)
 
-      # Expect the subscription to be closed
-      expect(subscription).to receive(:close)
+      # Expect the async_response to be closed
+      expect(async_response).to receive(:close)
 
       reader.shutdown
     end
@@ -95,12 +97,12 @@ describe Kinesis::EnhancedShardReader do
 
   describe '#wait_for_events' do
     it 'waits for events from the subscription' do
-      # Set up the subscription
+      # Set up the async_response
       reader = prepare_subject
-      reader.instance_variable_set(:@subscription, subscription)
+      reader.instance_variable_set(:@async_response, async_response)
 
       # Expect wait to be called
-      expect(subscription).to receive(:wait)
+      expect(async_response).to receive(:wait)
 
       # Call the method but catch the expected exception
       expect do
