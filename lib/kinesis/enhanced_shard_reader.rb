@@ -73,7 +73,7 @@ module Kinesis
     end
 
     def create_subscription
-      @logger.warn(
+      @logger.info(
         "Creating subscription for shard #{@shard_id}, " \
         "consumer ARN: #{@consumer_arn}, " \
         "starting position: #{@starting_position.inspect}"
@@ -110,9 +110,9 @@ module Kinesis
       # Wait for the async response to complete
       @async_response.wait
 
-      # After subscription ends, we need to raise an error to trigger a retry
-      @logger.warn("Subscription ended for shard #{@shard_id}, will retry")
-      raise StandardError, "Subscription ended for shard #{@shard_id}, will retry"
+      # After subscription ends, log it and return
+      # The next iteration of the loop will create a new subscription
+      @logger.info("Subscription ended for shard #{@shard_id}, will renew")
     end
 
     def handle_json_error(error)
@@ -139,9 +139,18 @@ module Kinesis
     end
 
     def handle_general_error(error)
-      error_message = "Error setting up enhanced fan-out for shard #{@shard_id}: #{error.message} (#{error.class})"
-      @logger.error(error_message)
-      @logger.error(error.backtrace.join("\n")) if error.backtrace
+      # Check if this is a known HTTP/2 stream initialization error
+      if error.is_a?(Seahorse::Client::Http2StreamInitializeError)
+        error_message = "HTTP/2 stream initialization error for shard #{@shard_id}: #{error.message}"
+        @logger.warn(error_message)
+        @logger.warn('Will retry the subscription')
+        # Add to error queue so it can be tracked, but it will be retried
+      else
+        # This is an unexpected error, log it as such
+        error_message = "Error setting up enhanced fan-out for shard #{@shard_id}: #{error.message} (#{error.class})"
+        @logger.error(error_message)
+        @logger.error(error.backtrace.join("\n")) if error.backtrace
+      end
       @error_queue << error
     end
 

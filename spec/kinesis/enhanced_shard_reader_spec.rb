@@ -101,10 +101,8 @@ describe Kinesis::EnhancedShardReader do
       # Expect wait to be called
       expect(async_response).to receive(:wait)
 
-      # Call the method but catch the expected exception
-      expect do
-        reader.send(:wait_for_events)
-      end.to raise_error(StandardError, /Subscription ended/)
+      # Call the method - it should not raise an exception
+      reader.send(:wait_for_events)
     end
   end
 
