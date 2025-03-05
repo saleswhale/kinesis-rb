@@ -119,7 +119,15 @@ module Kinesis
     def handle_aws_error(error)
       error_message = "AWS service error in enhanced fan-out for shard #{@shard_id}: #{error.message} (#{error.class})"
       @logger.error(error_message)
-      @logger.error("Error code: #{error.code}, Request ID: #{error.request_id}")
+
+      # Log additional details if available
+      error_details = []
+      error_details << "Code: #{error.code}" if error.respond_to?(:code)
+      if error.respond_to?(:context) && error.context.respond_to?(:request_id)
+        error_details << "Request ID: #{error.context.request_id}"
+      end
+
+      @logger.error("Error details: #{error_details.join(', ')}") unless error_details.empty?
       @error_queue << error
     end
 

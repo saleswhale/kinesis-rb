@@ -112,7 +112,22 @@ describe Kinesis::EnhancedShardReader do
     end
 
     it 'handles AWS service errors' do
-      error = Aws::Kinesis::Errors::ResourceNotFoundException.new(nil, 'Resource not found')
+      # Create a proper AWS error with a request context
+      context = Seahorse::Client::RequestContext.new(
+        operation_name: 'SubscribeToShard'
+      )
+
+      # Set the response in the context
+      context.http_response.status_code = 400
+      context.http_response.headers['x-amzn-RequestId'] = '1234567890ABCDEF'
+      context.http_response.body = StringIO.new('{"__type":"ResourceNotFoundException","message":"Resource not found"}')
+
+      # Create the error with the context
+      error = Aws::Kinesis::Errors::ResourceNotFoundException.new(
+        context,
+        'Resource not found'
+      )
+
       allow(kinesis_client).to receive(:subscribe_to_shard).and_raise(error)
 
       expect(logger).to receive(:error).at_least(:once)
