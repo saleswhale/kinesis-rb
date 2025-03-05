@@ -74,6 +74,7 @@ module Kinesis
     end
 
     def create_subscription
+      @logger.warn("Creating subscription for shard #{@shard_id}, consumer ARN: #{@consumer_arn}, starting position: #{@starting_position.inspect}")
       @subscription = @kinesis_client.subscribe_to_shard(
         consumer_arn: @consumer_arn,
         shard_id: @shard_id,
