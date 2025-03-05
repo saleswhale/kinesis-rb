@@ -50,19 +50,18 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
                             }]
                           })
 
-    # Stub describe_stream_consumer (existing consumer)
-    client.stub_responses(:describe_stream_consumer, {
-                            consumer_description: {
-                              consumer_name: 'test-consumer',
-                              consumer_arn: consumer_arn,
-                              consumer_status: 'ACTIVE',
-                              consumer_creation_timestamp: Time.now,
-                              stream_arn: stream_arn
-                            }
-                          })
+    allow(client).to receive(:describe_stream_consumer).and_return(
+      Aws::Kinesis::Types::DescribeStreamConsumerOutput.new(
+        consumer_description: Aws::Kinesis::Types::ConsumerDescription.new(
+          consumer_name: 'test-consumer',
+          consumer_arn: consumer_arn,
+          consumer_status: 'ACTIVE',
+          consumer_creation_timestamp: Time.now,
+          stream_arn: stream_arn
+        )
+      )
+    )
 
-    # For subscribe_to_shard, we need to mock the event stream differently
-    # Instead of stubbing it directly, we'll mock the method call
     allow(client).to receive(:subscribe_to_shard).and_return(
       instance_double('Aws::Kinesis::SubscribeToShardOutput',
                       event_stream: instance_double('Aws::Kinesis::EventStream'),
@@ -71,15 +70,16 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
                       close: nil)
     )
 
-    # Stub register_stream_consumer
-    client.stub_responses(:register_stream_consumer, {
-                            consumer: {
-                              consumer_name: 'test-consumer',
-                              consumer_arn: consumer_arn,
-                              consumer_status: 'CREATING',
-                              consumer_creation_timestamp: Time.now
-                            }
-                          })
+    allow(client).to receive(:register_stream_consumer).and_return(
+      Aws::Kinesis::Types::RegisterStreamConsumerOutput.new(
+        consumer: Aws::Kinesis::Types::Consumer.new(
+          consumer_name: 'test-consumer',
+          consumer_arn: consumer_arn,
+          consumer_status: 'CREATING',
+          consumer_creation_timestamp: Time.now
+        )
+      )
+    )
 
     client
   end
@@ -133,10 +133,19 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
   end
 
   it 'registers a consumer when initialized' do
-    # We need to test the register_consumer method directly
     expect(kinesis_client).to receive(:describe_stream_consumer).with(
       stream_arn: stream_arn,
       consumer_name: 'test-consumer'
+    ).and_return(
+      Aws::Kinesis::Types::DescribeStreamConsumerOutput.new(
+        consumer_description: Aws::Kinesis::Types::ConsumerDescription.new(
+          consumer_name: 'test-consumer',
+          consumer_arn: consumer_arn,
+          consumer_status: 'ACTIVE',
+          consumer_creation_timestamp: Time.now,
+          stream_arn: stream_arn
+        )
+      )
     )
     subject.send(:register_consumer)
   end
@@ -155,10 +164,14 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
         .once
 
       allow(kinesis_client).to receive(:register_stream_consumer).and_return(
-        instance_double('Aws::Kinesis::Types::RegisterStreamConsumerOutput',
-                        consumer: instance_double('Aws::Kinesis::Types::Consumer',
-                                                  consumer_name: 'test-consumer',
-                                                  consumer_arn: consumer_arn))
+        Aws::Kinesis::Types::RegisterStreamConsumerOutput.new(
+          consumer: Aws::Kinesis::Types::Consumer.new(
+            consumer_name: 'test-consumer',
+            consumer_arn: consumer_arn,
+            consumer_status: 'CREATING',
+            consumer_creation_timestamp: Time.now
+          )
+        )
       )
     end
 
