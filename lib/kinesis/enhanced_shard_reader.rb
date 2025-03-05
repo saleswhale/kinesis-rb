@@ -86,11 +86,11 @@ module Kinesis
       output_stream = Aws::Kinesis::EventStreams::SubscribeToShardEventStream.new
 
       # Set up event handlers
-      output_stream.on_record_event_event do |event|
+      output_stream.on_record_event do |event|
         process_records(event.records)
       end
 
-      output_stream.on_error_event do |event|
+      output_stream.on_error do |event|
         error_message = "Error in enhanced fan-out subscription for shard #{@shard_id}: #{event.error.message}"
         @logger.error(error_message)
         @error_queue << event.error
