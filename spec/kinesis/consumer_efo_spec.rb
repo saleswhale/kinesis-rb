@@ -65,10 +65,10 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
     # Instead of stubbing it directly, we'll mock the method call
     allow(client).to receive(:subscribe_to_shard).and_return(
       instance_double('Aws::Kinesis::SubscribeToShardOutput',
-             event_stream: instance_double('Aws::Kinesis::EventStream'),
-             on_event_stream: nil,
-             wait: nil,
-             close: nil)
+                      event_stream: instance_double('Aws::Kinesis::EventStream'),
+                      on_event_stream: nil,
+                      wait: nil,
+                      close: nil)
     )
 
     # Stub register_stream_consumer
@@ -149,8 +149,8 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
         .once
 
       allow(kinesis_client).to receive(:register_stream_consumer).and_return(
-        instance_double('Aws::Kinesis::Types::RegisterStreamConsumerOutput', 
-                      consumer: instance_double('Aws::Kinesis::Types::Consumer', consumer_name: 'test-consumer'))
+        instance_double('Aws::Kinesis::Types::RegisterStreamConsumerOutput',
+                        consumer: instance_double('Aws::Kinesis::Types::Consumer', consumer_name: 'test-consumer'))
       )
     end
 
