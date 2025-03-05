@@ -86,18 +86,21 @@ module Kinesis
       return unless @use_enhanced_fan_out
 
       begin
-        # Check if consumer already exists
-        @kinesis_client.describe_stream_consumer(
-          consumer_arn: consumer_arn
+        # Check if consumer already exists using stream_arn and consumer_name
+        response = @kinesis_client.describe_stream_consumer(
+          stream_arn: stream_arn,
+          consumer_name: @consumer_name
         )
-        @logger.info("Using existing consumer: #{@consumer_name}")
+        @consumer_arn = response.consumer_description.consumer_arn
+        @logger.info("Using existing consumer: #{@consumer_name}, ARN: #{@consumer_arn}")
       rescue Aws::Kinesis::Errors::ResourceNotFoundException
         # Create consumer if it doesn't exist
         response = @kinesis_client.register_stream_consumer(
           stream_arn: stream_arn,
           consumer_name: @consumer_name
         )
-        @logger.info("Registered new consumer: #{response.consumer.consumer_name}")
+        @consumer_arn = response.consumer.consumer_arn
+        @logger.info("Registered new consumer: #{response.consumer.consumer_name}, ARN: #{@consumer_arn}")
       end
     end
 
@@ -106,7 +109,7 @@ module Kinesis
     end
 
     def consumer_arn
-      "#{stream_arn}/consumer/#{@consumer_name}"
+      @consumer_arn || raise("Consumer ARN not available. Make sure register_consumer is called first.")
     end
 
     # 1 thread per shard, will indefinitely push to queue
