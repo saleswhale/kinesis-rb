@@ -47,8 +47,18 @@ describe Kinesis::EnhancedShardReader do
     )
   end
 
+  # Helper method to ensure preprocess is called
+  def prepare_subject
+    # Call preprocess to set up the kinesis client
+    subject.send(:preprocess)
+    subject
+  end
+
   describe '#initialize' do
     it 'sets up a subscription to the shard' do
+      # Prepare the subject first
+      reader = prepare_subject
+
       expect(kinesis_client).to receive(:subscribe_to_shard).with(
         consumer_arn: 'test-consumer-arn',
         shard_id: 'test-shard-id',
@@ -56,14 +66,14 @@ describe Kinesis::EnhancedShardReader do
       )
 
       # Trigger the process method
-      subject.send(:process)
+      reader.send(:process)
     end
   end
 
   describe '#shutdown' do
     it 'closes the subscription' do
       # Create the reader and set the subscription
-      reader = subject
+      reader = prepare_subject
       reader.instance_variable_set(:@subscription, subscription)
 
       # Expect the subscription to be closed
@@ -86,21 +96,23 @@ describe Kinesis::EnhancedShardReader do
   describe '#wait_for_events' do
     it 'waits for events from the subscription' do
       # Set up the subscription
-      subject.instance_variable_set(:@subscription, subscription)
+      reader = prepare_subject
+      reader.instance_variable_set(:@subscription, subscription)
 
       # Expect wait to be called
       expect(subscription).to receive(:wait)
 
       # Call the method but catch the expected exception
       expect do
-        subject.send(:wait_for_events)
+        reader.send(:wait_for_events)
       end.to raise_error(StandardError, /Subscription ended/)
     end
   end
 
   describe 'error handling' do
     before do
-      subject.instance_variable_set(:@subscription, subscription)
+      # Ensure preprocess is called for each test
+      prepare_subject
     end
 
     it 'handles JSON parsing errors' do
