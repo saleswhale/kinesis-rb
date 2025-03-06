@@ -141,7 +141,8 @@ module Kinesis
     def handle_general_error(error)
       # Check if this is a known HTTP/2 stream initialization error
       if error.is_a?(Seahorse::Client::Http2StreamInitializeError)
-        error_message = "HTTP/2 stream initialization error for shard #{@shard_id}: #{error.message}"
+        error_message = "HTTP/2 stream initialization error for shard #{@shard_id}: " \
+                         "#{error.message} - #{error.original_error.message}"
         @logger.warn(error_message)
         @logger.warn('Will retry the subscription')
         # Add to error queue so it can be tracked, but it will be retried
