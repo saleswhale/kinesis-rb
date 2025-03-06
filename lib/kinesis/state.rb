@@ -12,10 +12,10 @@ module Kinesis
     #                             otherwise will just default to the root dir
     def initialize(stream_name:, stream_retention_period_in_hours:, logger:, dynamodb: {})
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
-      @consumer_id = Socket.gethostbyname(Socket.gethostname).first
       @dynamodb_client = dynamodb[:client]
       @dynamodb_table_name = dynamodb[:table_name]
       @logger = logger
+      @consumer_id = generate_consumer_id
       @shards = {}
       @stream_name = stream_name
       @stream_retention_period_in_hours = stream_retention_period_in_hours
@@ -23,6 +23,22 @@ module Kinesis
         'consumerGroup': @consumer_group,
         'streamName': @stream_name
       }
+    end
+
+    def generate_consumer_id
+      begin
+        # Try the standard hostname resolution first
+        Addrinfo.getaddrinfo(Socket.gethostname, nil, :INET).first.ip_address
+      rescue StandardError => e
+        # Fall back to alternatives if hostname resolution fails
+        @logger.warn("Hostname resolution failed: #{e.message}. Using fallback consumer ID.")
+        
+        # Option 1: Use environment variable if set
+        return ENV['KINESIS_CONSUMER_ID'] if ENV['KINESIS_CONSUMER_ID']
+        
+        # Option 2: Generate a unique ID combining process ID and timestamp
+        "consumer-#{Process.pid}-#{Time.now.to_i}"
+      end
     end
 
     def get_iterator_args(shard_id)
@@ -86,7 +102,7 @@ module Kinesis
       @shards[shard_id]['checkpoint'] = sequence_number
     end
 
-    def lock_shard(shard_id, expires_in)
+    def lock_shard(shard_id, expire_time)
       return true unless plugged_in?
 
       resp = @dynamodb_client.get_item(
@@ -115,9 +131,9 @@ module Kinesis
       end
 
       if @shards[shard_id].nil?
-        create_new_lock(expires_in, shard_id)
+        create_new_lock(expire_time, shard_id)
       else
-        update_lock(expires_in, shard_id)
+        update_lock(expire_time, shard_id)
       end
 
       true
@@ -135,10 +151,10 @@ module Kinesis
 
     private
 
-    def create_new_lock(expires_in, shard_id, retry_once_on_failure: true)
+    def create_new_lock(expire_time, shard_id, retry_once_on_failure: true)
       shard = {
         'consumerId' => @consumer_id,
-        'expiresIn' => expires_in.utc.iso8601,
+        'expiresIn' => expire_time.utc.iso8601,
         'heartbeat' => Time.now.utc.iso8601
       }
 
@@ -170,11 +186,11 @@ module Kinesis
       retry
     end
 
-    def update_lock(expires_in, shard_id)
+    def update_lock(expire_time, shard_id)
       current_consumer_id = @shards[shard_id]['consumerId']
       current_expiry = Time.parse(@shards[shard_id]['expiresIn']).iso8601
 
-      new_expiry = expires_in.utc.iso8601
+      new_expiry = expire_time.utc.iso8601
       now = Time.now.utc.iso8601
 
       @dynamodb_client.update_item(

@@ -19,7 +19,7 @@ module Kinesis
     # rubocop:disable Metrics/ParameterLists
     def initialize(
       stream_name:,
-      dynamodb: { client: nil, table_name: nil, consumer_group: nil },
+      dynamodb: { client: nil },
       kinesis: { client: nil },
       lock_duration: LOCK_DURATION,
       logger: nil,
@@ -42,6 +42,7 @@ module Kinesis
       @state = nil
       @use_enhanced_fan_out = use_enhanced_fan_out
       @consumer_name = consumer_name
+      @kinesis_options = kinesis
 
       return unless @use_enhanced_fan_out && @consumer_name.nil?
 
@@ -160,6 +161,21 @@ module Kinesis
         shard_iterator: shard_iterator,
         sleep_time: @reader_sleep_time,
         pull_limit: @pull_limit
+      )
+    end
+
+    def start_enhanced_shard_reader(shard_id)
+      starting_position = @state.get_iterator_args(shard_id)
+
+      @shards[shard_id] = Kinesis::EnhancedShardReader.new(
+        error_queue: @error_queue,
+        logger: @logger,
+        record_queue: @record_queue,
+        shard_id: shard_id,
+        sleep_time: @reader_sleep_time,
+        consumer_arn: consumer_arn,
+        starting_position: starting_position,
+        kinesis_options: @kinesis_options
       )
     end
 

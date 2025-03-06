@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  localstack:
+    image: localstack/localstack-pro
+    container_name: kinesis-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=kinesis,dynamodb
+      - DEBUG=1
+      - PERSISTENCE=0  # Disable persistence to avoid disk issues
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - KINESIS_PROVIDER=kinesalite
+      - LOCALSTACK_API_KEY=your-api-key-here
+      - AWS_DEFAULT_REGION=us-east-1
+      - DEFAULT_REGION=us-east-1
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "${TMPDIR:-/tmp}/localstack:/tmp/localstack"
+    networks:
+      - localstack-net
+
+  setup:
+    image: amazon/aws-cli:latest
+    depends_on:
+      - localstack
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./bin/setup-localstack-resources.sh:/setup.sh
+    entrypoint: /bin/sh
+    command: /setup.sh
+    networks:
+      - localstack-net
+
+networks:
+  localstack-net:
+    driver: bridge

@@ -12,7 +12,8 @@ module Kinesis
       shard_id:,
       consumer_arn:,
       starting_position:,
-      sleep_time: nil
+      sleep_time: nil,
+      kinesis_options: {}
     )
       @error_queue = error_queue
       @logger = logger
@@ -23,6 +24,7 @@ module Kinesis
       @starting_position = starting_position
       @subscription = nil
       @async_response = nil
+      @kinesis_options = kinesis_options
 
       super(nil) # Call parent initializer
     end
@@ -42,7 +44,16 @@ module Kinesis
 
     def preprocess
       # Create a fresh Kinesis AsyncClient for HTTP/2 streaming
-      @kinesis_client = Aws::Kinesis::AsyncClient.new
+      client_options = {}
+      
+      if @kinesis_options && @kinesis_options[:endpoint]
+        client_options[:endpoint] = @kinesis_options[:endpoint]
+        client_options[:region] = @kinesis_options[:region] || 'us-east-1'
+        client_options[:credentials] = @kinesis_options[:credentials] if @kinesis_options[:credentials]
+        client_options[:force_path_style] = true if @kinesis_options[:endpoint].include?('localhost')
+      end
+      
+      @kinesis_client = Aws::Kinesis::AsyncClient.new(client_options)
     end
 
     def process

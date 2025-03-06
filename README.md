@@ -103,3 +103,83 @@ This library supports Kinesis Enhanced Fan-Out, which requires:
 Enhanced Fan-Out uses the `Aws::Kinesis::AsyncClient` for HTTP/2 streaming instead of the regular `Client`. This is automatically handled by the library.
 
 ```
+
+## Local Development with Localstack
+
+This gem includes support for local development and testing using Localstack, which provides local AWS service emulation.
+
+### Prerequisites
+
+- Docker and Docker Compose
+- AWS CLI
+
+### Running Localstack
+
+1. Start Localstack:
+
+```bash
+bin/localstack start
+```
+
+2. Set up test resources (Kinesis stream, DynamoDB table, and test records):
+
+```bash
+bin/setup-localstack
+```
+
+3. Run integration tests:
+
+```bash
+bin/localstack test
+```
+
+4. View logs:
+
+```bash
+bin/localstack logs
+```
+
+5. Stop Localstack:
+
+```bash
+bin/localstack stop
+```
+
+### Manual Testing with Localstack
+
+You can also use Localstack for manual testing:
+
+```ruby
+require 'kinesis'
+
+# Configure your consumer to use Localstack
+consumer = Kinesis::Consumer.new(
+  stream_name: 'test-stream',
+  dynamodb: {
+    table_name: 'test-table',
+    consumer_group: 'test-group'
+  },
+  kinesis: {
+    endpoint: 'http://localhost:4566',
+    region: 'us-east-1',
+    credentials: Aws::Credentials.new('test', 'test')
+  }
+)
+
+# Process records
+consumer.each do |record|
+  puts "Received record: #{record.data}"
+end
+```
+
+## Development
+
+After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/kinesis.
+
+## License
+
+The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).

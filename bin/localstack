@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -e
+
+case "$1" in
+  start)
+    echo "Starting Localstack..."
+    # Clean up any previous instances
+    docker stop kinesis-localstack >/dev/null 2>&1 || true
+    docker rm kinesis-localstack >/dev/null 2>&1 || true
+    
+    # Create a dedicated volume for localstack data
+    docker volume create localstack-data >/dev/null 2>&1 || true
+    
+    # Run localstack with proper configuration for DynamoDB and Kinesis
+    docker run -d --name kinesis-localstack \
+      -p 4566:4566 \
+      -e SERVICES=kinesis,dynamodb \
+      -e DEBUG=1 \
+      -e DEFAULT_REGION=us-east-1 \
+      -e HOSTNAME=localhost \
+      --hostname=localhost \
+      --add-host=localhost:127.0.0.1 \
+      --dns=8.8.8.8 \
+      --dns-search=. \
+      -e AWS_ACCESS_KEY_ID=test \
+      -e AWS_SECRET_ACCESS_KEY=test \
+      localstack/localstack:latest
+    
+    echo "Waiting for Localstack to be ready..."
+    max_attempts=30
+    attempts=0
+    
+    # Simple TCP port check (more reliable than API calls)
+    until nc -z localhost 4566; do
+      attempts=$((attempts + 1))
+      if [ $attempts -ge $max_attempts ]; then
+        echo "Localstack didn't become available in time"
+        docker logs kinesis-localstack
+        exit 1
+      fi
+      echo "Waiting for Localstack port... (attempt $attempts/$max_attempts)"
+      sleep 2
+    done
+    
+    # Give it a bit more time to initialize services
+    echo "Port is open, waiting for services to initialize..."
+    sleep 10
+    
+    echo "Localstack is ready at http://localhost:4566"
+    ;;
+    
+  setup)
+    echo "Setting up test resources..."
+    # Set AWS credentials and explicitly set region
+    export AWS_ACCESS_KEY_ID=test
+    export AWS_SECRET_ACCESS_KEY=test
+    export AWS_DEFAULT_REGION=us-east-1
+    
+    # Create Kinesis stream
+    echo "Creating Kinesis stream..."
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 kinesis create-stream --stream-name test-stream --shard-count 2 || true
+    
+    # Wait for stream to be active
+    echo "Waiting for stream to become active..."
+    sleep 5
+    
+    # Create DynamoDB table
+    echo "Creating DynamoDB table..."
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 dynamodb create-table \
+      --table-name test-table \
+      --attribute-definitions \
+        AttributeName=consumerGroup,AttributeType=S \
+        AttributeName=streamName,AttributeType=S \
+      --key-schema \
+        AttributeName=consumerGroup,KeyType=HASH \
+        AttributeName=streamName,KeyType=RANGE \
+      --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 || true
+    
+    # Pre-create initial item with empty shards map
+    echo "Creating initial item with empty shards map..."
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 dynamodb put-item \
+      --table-name test-table \
+      --item '{ 
+          "consumerGroup": {"S": "test-group"}, 
+          "streamName": {"S": "test-stream"}, 
+          "shards": {"M": {}} 
+        }' || true
+    
+    # Register a consumer for Enhanced Fan Out
+    echo "Registering Enhanced Fan Out consumer..."
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 kinesis register-stream-consumer \
+      --stream-arn arn:aws:kinesis:us-east-1:000000000000:stream/test-stream \
+      --consumer-name test-consumer || true
+    
+    # Put test records
+    echo "Putting test records..."
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 kinesis put-record \
+      --stream-name test-stream \
+      --partition-key test-key \
+      --data $(echo -n 'test record 1' | base64)
+    
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 kinesis put-record \
+      --stream-name test-stream \
+      --partition-key test-key \
+      --data $(echo -n 'test record 2' | base64)
+    
+    aws --region us-east-1 --endpoint-url=http://localhost:4566 kinesis put-record \
+      --stream-name test-stream \
+      --partition-key test-key \
+      --data $(echo -n 'test record 3' | base64)
+    
+    echo "Setup complete!"
+    ;;
+    
+  stop)
+    echo "Stopping Localstack..."
+    docker stop kinesis-localstack || true
+    docker rm kinesis-localstack || true
+    echo "Localstack stopped."
+    ;;
+    
+  reset)
+    echo "Resetting Localstack..."
+    bin/localstack stop
+    # Remove the volume to start fresh
+    docker volume rm localstack-data || true
+    echo "Creating a fresh Localstack instance..."
+    bin/localstack start
+    bin/localstack setup
+    echo "Localstack reset complete."
+    ;;
+    
+  logs)
+    docker logs kinesis-localstack
+    ;;
+    
+  test)
+    echo "Starting Localstack for tests..."
+    bin/localstack start
+    echo "Setting up test resources..."
+    bin/localstack setup
+    echo "Running tests..."
+    # Set environment variables to help with tests
+    HOSTNAME=localhost \
+    KINESIS_CONSUMER_ID=test-consumer-id \
+    bundle exec rspec spec/integration/kinesis_localstack_spec.rb
+    echo "Stopping Localstack..."
+    bin/localstack stop
+    ;;
+    
+  *)
+    echo "Usage: bin/localstack {start|setup|stop|reset|logs|test}"
+    exit 1
+    ;;
+esac 
