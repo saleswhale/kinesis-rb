@@ -42,10 +42,7 @@ module Kinesis
 
     def preprocess
       # Create a fresh Kinesis AsyncClient for HTTP/2 streaming
-      @kinesis_client = Aws::Kinesis::AsyncClient.new(
-        http_read_timeout: 60,
-        http_open_timeout: 10
-      )
+      @kinesis_client = Aws::Kinesis::AsyncClient.new
     end
 
     def process
@@ -65,6 +62,8 @@ module Kinesis
         handle_aws_error(e)
       rescue StandardError => e
         handle_general_error(e)
+      ensure
+        cleanup_connection
       end
 
       @sleep_time # Return sleep time for retry
@@ -119,8 +118,6 @@ module Kinesis
         # This is the specific error you're seeing
         @logger.warn("HTTP/2 stream reset during wait for shard #{@shard_id}: #{e.message}")
         @logger.warn('This is normal after connection expiration, will establish a new subscription')
-
-        cleanup_connection
         # Sleep briefly before attempting to reconnect
         sleep(1)
       rescue StandardError => e
@@ -145,10 +142,7 @@ module Kinesis
       @subscription = nil
 
       # Also recreate the Kinesis client for a fresh connection
-      @kinesis_client = Aws::Kinesis::AsyncClient.new(
-        http_read_timeout: 60,
-        http_open_timeout: 10
-      )
+      @kinesis_client = Aws::Kinesis::AsyncClient.new
     end
 
     def thread_alive?
