@@ -42,7 +42,10 @@ module Kinesis
 
     def preprocess
       # Create a fresh Kinesis AsyncClient for HTTP/2 streaming
-      @kinesis_client = Aws::Kinesis::AsyncClient.new
+      @kinesis_client = Aws::Kinesis::AsyncClient.new(
+        http_read_timeout: 60,
+        http_open_timeout: 10
+      )
     end
 
     def process
@@ -107,12 +110,51 @@ module Kinesis
     def wait_for_events
       @logger.info("Waiting for events on shard #{@shard_id}")
 
-      # Wait for the async response to complete
-      @async_response.wait
+      begin
+        # Use the standard wait method that's likely mocked in your tests
+        @async_response.wait
 
-      # After subscription ends, log it and return
-      # The next iteration of the loop will create a new subscription
-      @logger.info("Subscription ended for shard #{@shard_id}, will renew")
+        @logger.info("Subscription ended normally for shard #{@shard_id}, will renew")
+      rescue Seahorse::Client::Http2StreamInitializeError => e
+        # This is the specific error you're seeing
+        @logger.warn("HTTP/2 stream reset during wait for shard #{@shard_id}: #{e.message}")
+        @logger.warn('This is normal after connection expiration, will establish a new subscription')
+
+        cleanup_connection
+        # Sleep briefly before attempting to reconnect
+        sleep(1)
+      rescue StandardError => e
+        @logger.warn("Error waiting for events on shard #{@shard_id}: #{e.class} - #{e.message}")
+        # Don't add this to error queue, as we'll retry
+      end
+    end
+
+    def cleanup_connection
+      # Release any resources
+      if @async_response
+        begin
+          # Try to explicitly close the connection if possible
+          @async_response.stream.close if @async_response.respond_to?(:stream) &&
+                                          @async_response.stream.respond_to?(:close)
+        rescue StandardError => e
+          @logger.warn("Error while closing async response: #{e.message}")
+        end
+      end
+
+      @async_response = nil
+      @subscription = nil
+
+      # Also recreate the Kinesis client for a fresh connection
+      @kinesis_client = Aws::Kinesis::AsyncClient.new(
+        http_read_timeout: 60,
+        http_open_timeout: 10
+      )
+    end
+
+    def thread_alive?
+      # Helper method to check if the current thread is still alive
+      # This helps avoid deadlocks if the parent thread is shutting down
+      Thread.current.alive? && !Thread.current[:shutdown]
     end
 
     def handle_json_error(error)
