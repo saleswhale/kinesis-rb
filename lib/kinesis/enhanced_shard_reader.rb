@@ -45,14 +45,14 @@ module Kinesis
     def preprocess
       # Create a fresh Kinesis AsyncClient for HTTP/2 streaming
       client_options = {}
-      
+
       if @kinesis_options && @kinesis_options[:endpoint]
         client_options[:endpoint] = @kinesis_options[:endpoint]
         client_options[:region] = @kinesis_options[:region] || 'us-east-1'
         client_options[:credentials] = @kinesis_options[:credentials] if @kinesis_options[:credentials]
         client_options[:force_path_style] = true if @kinesis_options[:endpoint].include?('localhost')
       end
-      
+
       @kinesis_client = Aws::Kinesis::AsyncClient.new(client_options)
     end
 

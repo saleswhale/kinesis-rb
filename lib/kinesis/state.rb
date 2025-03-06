@@ -5,6 +5,7 @@ require 'time'
 
 module Kinesis
   # Kinesis::State
+  # rubocop:disable Metrics/ClassLength
   class State
     attr_accessor :shards
 
@@ -26,19 +27,17 @@ module Kinesis
     end
 
     def generate_consumer_id
-      begin
-        # Try the standard hostname resolution first
-        Addrinfo.getaddrinfo(Socket.gethostname, nil, :INET).first.ip_address
-      rescue StandardError => e
-        # Fall back to alternatives if hostname resolution fails
-        @logger.warn("Hostname resolution failed: #{e.message}. Using fallback consumer ID.")
-        
-        # Option 1: Use environment variable if set
-        return ENV['KINESIS_CONSUMER_ID'] if ENV['KINESIS_CONSUMER_ID']
-        
-        # Option 2: Generate a unique ID combining process ID and timestamp
-        "consumer-#{Process.pid}-#{Time.now.to_i}"
-      end
+      # Try the standard hostname resolution first
+      Addrinfo.getaddrinfo(Socket.gethostname, nil, :INET).first.ip_address
+    rescue StandardError => e
+      # Fall back to alternatives if hostname resolution fails
+      @logger.warn("Hostname resolution failed: #{e.message}. Using fallback consumer ID.")
+
+      # Option 1: Use environment variable if set
+      return ENV['KINESIS_CONSUMER_ID'] if ENV['KINESIS_CONSUMER_ID']
+
+      # Option 2: Generate a unique ID combining process ID and timestamp
+      "consumer-#{Process.pid}-#{Time.now.to_i}"
     end
 
     def get_iterator_args(shard_id)
@@ -54,13 +53,7 @@ module Kinesis
       heartbeat_diff = Time.now.utc - Time.parse(heartbeat).utc
 
       if heartbeat_diff > (60 * 60 * @stream_retention_period_in_hours)
-        @logger.info(
-          {
-            message: 'Heartbeat is stale, defaulting to LATEST',
-            sequence_number: last_sequence_number,
-            heartbeat: heartbeat
-          }
-        )
+        log_stale_heartbeat(last_sequence_number, heartbeat)
       else
         iterator_args = {
           shard_iterator_type: 'AFTER_SEQUENCE_NUMBER',
@@ -80,23 +73,9 @@ module Kinesis
         expression_attribute_names: {
           '#shard_id': shard_id
         },
-        expression_attribute_values: {
-          ':consumer_group': @consumer_group,
-          ':sequence_number': sequence_number,
-          ':heartbeat': Time.now.utc.iso8601,
-          ':stream_name': @stream_name
-        },
-        condition_expression:
-          'consumerGroup = :consumer_group AND ' \
-          'streamName = :stream_name AND ' \
-          '(' \
-          '  attribute_not_exists(shards.#shard_id.checkpoint) OR ' \
-          '  shards.#shard_id.checkpoint < :sequence_number ' \
-          ')',
-        update_expression:
-          'SET ' \
-          'shards.#shard_id.checkpoint = :sequence_number, ' \
-          'shards.#shard_id.heartbeat = :heartbeat'
+        expression_attribute_values: checkpoint_expression_values(sequence_number),
+        condition_expression: checkpoint_condition_expression,
+        update_expression: checkpoint_update_expression
       )
 
       @shards[shard_id]['checkpoint'] = sequence_number
@@ -114,18 +93,7 @@ module Kinesis
       if resp[:item]
         shard = resp[:item].dig('shards', shard_id)
 
-        if shard && shard['consumerId'] != @consumer_id && Time.parse(shard['expiresIn']) > Time.now
-          @logger.info(
-            {
-              message: 'Not starting reader for shard as it is locked by a different consumer',
-              consumer_id: @consumer_id,
-              locked_consumer_id: shard['consumerId'],
-              locked_expiry: shard['expiresIn'],
-              shard_id: shard_id
-            }
-          )
-          return false
-        end
+        return false if shard_locked_by_other_consumer?(shard, shard_id)
 
         @shards[shard_id] = shard
       end
@@ -150,6 +118,56 @@ module Kinesis
     end
 
     private
+
+    def log_stale_heartbeat(last_sequence_number, heartbeat)
+      @logger.info(
+        {
+          message: 'Heartbeat is stale, defaulting to LATEST',
+          sequence_number: last_sequence_number,
+          heartbeat: heartbeat
+        }
+      )
+    end
+
+    def checkpoint_expression_values(sequence_number)
+      {
+        ':consumer_group': @consumer_group,
+        ':sequence_number': sequence_number,
+        ':heartbeat': Time.now.utc.iso8601,
+        ':stream_name': @stream_name
+      }
+    end
+
+    def checkpoint_condition_expression
+      'consumerGroup = :consumer_group AND ' \
+      'streamName = :stream_name AND ' \
+      '(' \
+      '  attribute_not_exists(shards.#shard_id.checkpoint) OR ' \
+      '  shards.#shard_id.checkpoint < :sequence_number ' \
+      ')'
+    end
+
+    def checkpoint_update_expression
+      'SET ' \
+      'shards.#shard_id.checkpoint = :sequence_number, ' \
+      'shards.#shard_id.heartbeat = :heartbeat'
+    end
+
+    def shard_locked_by_other_consumer?(shard, shard_id)
+      if shard && shard['consumerId'] != @consumer_id && Time.parse(shard['expiresIn']) > Time.now
+        @logger.info(
+          {
+            message: 'Not starting reader for shard as it is locked by a different consumer',
+            consumer_id: @consumer_id,
+            locked_consumer_id: shard['consumerId'],
+            locked_expiry: shard['expiresIn'],
+            shard_id: shard_id
+          }
+        )
+        return true
+      end
+      false
+    end
 
     def create_new_lock(expire_time, shard_id, retry_once_on_failure: true)
       shard = {
@@ -199,24 +217,10 @@ module Kinesis
         expression_attribute_names: {
           '#shard_id': shard_id
         },
-        expression_attribute_values: {
-          ':new_consumer_id': @consumer_id,
-          ':new_expires': new_expiry,
-          ':current_consumer_id': current_consumer_id,
-          ':current_expires': current_expiry,
-          ':heartbeat': now
-        },
-        condition_expression:
-          'shards.#shard_id.consumerId = :current_consumer_id AND ' \
-          'shards.#shard_id.expiresIn = :current_expires',
-
-        # NOTE: Only update affected keys, don't replace the whole object, so as
-        # to not override rolling updates during `checkpoint` call
-        update_expression:
-          'SET ' \
-          'shards.#shard_id.consumerId = :new_consumer_id, ' \
-          'shards.#shard_id.expiresIn = :new_expires, ' \
-          'shards.#shard_id.heartbeat = :heartbeat'
+        expression_attribute_values: update_lock_expression_values(current_consumer_id, current_expiry, new_expiry,
+                                                                   now),
+        condition_expression: update_lock_condition_expression,
+        update_expression: update_lock_update_expression
       )
 
       # NOTE: Only update affected keys, don't replace the whole object
@@ -229,8 +233,31 @@ module Kinesis
       )
     end
 
+    def update_lock_expression_values(current_consumer_id, current_expiry, new_expiry, now)
+      {
+        ':new_consumer_id': @consumer_id,
+        ':new_expires': new_expiry,
+        ':current_consumer_id': current_consumer_id,
+        ':current_expires': current_expiry,
+        ':heartbeat': now
+      }
+    end
+
+    def update_lock_condition_expression
+      'shards.#shard_id.consumerId = :current_consumer_id AND ' \
+      'shards.#shard_id.expiresIn = :current_expires'
+    end
+
+    def update_lock_update_expression
+      'SET ' \
+      'shards.#shard_id.consumerId = :new_consumer_id, ' \
+      'shards.#shard_id.expiresIn = :new_expires, ' \
+      'shards.#shard_id.heartbeat = :heartbeat'
+    end
+
     def plugged_in?
       !@dynamodb_client.nil? && !@dynamodb_table_name.nil?
     end
   end
+  # rubocop:enable Metrics/ClassLength
 end
