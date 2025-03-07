@@ -25,18 +25,16 @@ module Kinesis
           # Check if consumer already exists using stream_arn and consumer_name
           @logger.info("Checking if consumer '#{@consumer_name}' already exists")
 
-          consumers = @kinesis_client.list_stream_consumers(
-            stream_arn: stream_arn
-          )
-
-          # Find the consumer by name if it exists
-          existing_consumer = consumers.consumers.find { |c| c.consumer_name == @consumer_name }
-
-          if existing_consumer
-            @logger.info("Consumer '#{@consumer_name}' already exists with ARN: #{existing_consumer.consumer_arn}")
-            @consumer_arn = existing_consumer.consumer_arn
-          else
-            # Register a new consumer
+          # First try to describe the consumer directly (faster and what the tests expect)
+          begin
+            response = @kinesis_client.describe_stream_consumer(
+              stream_arn: stream_arn,
+              consumer_name: @consumer_name
+            )
+            @consumer_arn = response.consumer_description.consumer_arn
+            @logger.info("Consumer '#{@consumer_name}' already exists with ARN: #{@consumer_arn}")
+          rescue Aws::Kinesis::Errors::ResourceNotFoundException
+            # Register a new consumer if it doesn't exist
             @logger.info("Registering new consumer '#{@consumer_name}'")
 
             response = @kinesis_client.register_stream_consumer(
@@ -57,8 +55,9 @@ module Kinesis
       # This is used when starting Enhanced Shard Readers
       #
       # @return [String] The ARN of the registered consumer
+      # @raise [RuntimeError] if consumer ARN is not available
       def consumer_arn
-        @consumer_arn
+        @consumer_arn || raise('Consumer ARN not available. Make sure register_consumer is called first.')
       end
 
       # Start an Enhanced Shard Reader for the specified shard
