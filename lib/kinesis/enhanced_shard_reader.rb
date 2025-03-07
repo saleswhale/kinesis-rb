@@ -1,10 +1,27 @@
 # frozen_string_literal: true
 
 module Kinesis
-  # Reads records from a Kinesis shard using Enhanced Fan-Out
+  # EnhancedShardReader is responsible for consuming records from a Kinesis shard
+  # using Enhanced Fan-Out (EFO). EFO provides dedicated throughput of 2MB/second per
+  # consumer per shard and uses HTTP/2 for push-based streaming of records.
+  #
+  # This class handles:
+  # - Establishing and maintaining HTTP/2 streaming connections to Kinesis
+  # - Processing records as they arrive via the streaming connection
+  # - Error handling and automatic retry/reconnection
+  # - Graceful shutdown of streaming connections
   class EnhancedShardReader < SubthreadLoop
     DEFAULT_SLEEP_TIME = 1.0
 
+    # Initialize a new Enhanced Fan-Out shard reader
+    #
+    # @param error_queue [Queue] Queue to push errors to for monitoring
+    # @param logger [Logger] Logger instance for logging operations and errors
+    # @param record_queue [Queue] Queue to push received records to for processing
+    # @param shard_id [String] ID of the Kinesis shard to read from
+    # @param consumer_arn [String] ARN of the registered consumer for Enhanced Fan-Out
+    # @param starting_position [Hash] Position to start reading from (e.g., LATEST, TRIM_HORIZON, etc.)
+    # @param sleep_time [Float, nil] Time to sleep between retry attempts
     def initialize(
       error_queue:,
       logger:,
@@ -27,6 +44,9 @@ module Kinesis
       super(nil) # Call parent initializer
     end
 
+    # Shutdown the shard reader and clean up resources
+    # This method is called when the consumer is shutting down or
+    # when a shard has been fully processed
     def shutdown
       # Use the same approach as ShardReader
       thread&.exit
@@ -40,16 +60,27 @@ module Kinesis
 
     private
 
+    # Prepare resources needed before starting the main processing loop
+    # Creates a new AsyncClient for HTTP/2 streaming connections
     def preprocess
       # Create a fresh Kinesis AsyncClient for HTTP/2 streaming
       @kinesis_client = Aws::Kinesis::AsyncClient.new
     end
 
+    # Main processing method called by the SubthreadLoop parent class
+    # Returns the sleep time for the next iteration
+    #
+    # @return [Float] Sleep time for the next iteration
     def process
       read_with_enhanced_fan_out
       @sleep_time # Return sleep time for the loop
     end
 
+    # Main method for reading records using Enhanced Fan-Out
+    # Sets up a subscription to the shard and processes records as they arrive
+    # Handles errors and performs cleanup after subscription ends or fails
+    #
+    # @return [Float] Sleep time for retry in case of failure
     def read_with_enhanced_fan_out
       log_start_info
 
@@ -69,11 +100,14 @@ module Kinesis
       @sleep_time # Return sleep time for retry
     end
 
+    # Log information about starting the Enhanced Fan-Out reader
     def log_start_info
       @logger.info("Starting enhanced fan-out for shard #{@shard_id} with consumer ARN: #{@consumer_arn}")
       @logger.info("Starting position: #{@starting_position.inspect}")
     end
 
+    # Create a subscription to the Kinesis shard using Enhanced Fan-Out
+    # Sets up event handlers for processing records and handling errors
     def create_subscription
       @logger.info(
         "Creating subscription for shard #{@shard_id}, " \
@@ -106,6 +140,8 @@ module Kinesis
       @logger.info("Successfully created subscription for shard #{@shard_id}")
     end
 
+    # Wait for and process events from the subscription
+    # This method blocks until the subscription ends or an error occurs
     def wait_for_events
       @logger.info("Waiting for events on shard #{@shard_id}")
 
@@ -126,6 +162,8 @@ module Kinesis
       end
     end
 
+    # Clean up resources after a subscription ends or fails
+    # Closes connections and recreates clients as needed
     def cleanup_connection
       # Release any resources
       if @async_response
@@ -145,12 +183,18 @@ module Kinesis
       @kinesis_client = Aws::Kinesis::AsyncClient.new
     end
 
+    # Check if the current thread is alive and not marked for shutdown
+    #
+    # @return [Boolean] True if the thread is alive and not marked for shutdown
     def thread_alive?
       # Helper method to check if the current thread is still alive
       # This helps avoid deadlocks if the parent thread is shutting down
       Thread.current.alive? && !Thread.current[:shutdown]
     end
 
+    # Handle JSON parsing errors that may occur when processing records
+    #
+    # @param error [JSON::ParserError] The JSON parsing error
     def handle_json_error(error)
       error_message = "JSON parsing error in enhanced fan-out for shard #{@shard_id}: #{error.message}"
       @logger.error(error_message)
@@ -159,6 +203,9 @@ module Kinesis
       @error_queue << error
     end
 
+    # Handle AWS service errors that may occur when interacting with Kinesis
+    #
+    # @param error [Aws::Errors::ServiceError] The AWS service error
     def handle_aws_error(error)
       error_message = "AWS service error in enhanced fan-out for shard #{@shard_id}: #{error.message} (#{error.class})"
       @logger.error(error_message)
@@ -174,6 +221,9 @@ module Kinesis
       @error_queue << error
     end
 
+    # Handle general errors that may occur during enhanced fan-out operations
+    #
+    # @param error [StandardError] The error that occurred
     def handle_general_error(error)
       # Check if this is a known HTTP/2 stream initialization error
       if error.is_a?(Seahorse::Client::Http2StreamInitializeError)
@@ -191,6 +241,10 @@ module Kinesis
       @error_queue << error
     end
 
+    # Process records received from the Kinesis stream
+    # Adds each record to the record queue for further processing
+    #
+    # @param records [Array<Aws::Kinesis::Types::Record>] Records received from Kinesis
     def process_records(records)
       @logger.info("Processing #{records.size} records from shard #{@shard_id}")
 
