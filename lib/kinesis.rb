@@ -9,5 +9,6 @@ require 'kinesis/producer'
 module Kinesis
   RETRYABLE_EXCEPTIONS = %w[
     Aws::Kinesis::Errors::ProvisionedThroughputExceededException
+    Seahorse::Client::Http2StreamInitializeError
   ].freeze
 end
