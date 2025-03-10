@@ -164,7 +164,7 @@ module Kinesis
     end
 
     def shutdown
-      @shards.values.each(&:shutdown)
+      @shards.each_value(&:shutdown)
       @shards = Concurrent::Hash.new
     end
 
