@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'timeout'
+require 'kinesis/enhanced_shard_reader/error_handling'
 
 module Kinesis
   # EnhancedShardReader is responsible for consuming records from a Kinesis shard
@@ -13,6 +14,8 @@ module Kinesis
   # - Error handling and automatic retry/reconnection
   # - Graceful shutdown of streaming connections
   class EnhancedShardReader < SubthreadLoop
+    include Kinesis::EnhancedShardReaderErrorHandling
+
     DEFAULT_SLEEP_TIME = 1.0
     DEFAULT_WAIT_TIMEOUT = 360 # 6 minutes timeout (1 minute buffer as AWS naturally has a 5 minute timeout)
 
@@ -46,6 +49,8 @@ module Kinesis
       @starting_position = starting_position
       @subscription = nil
       @async_response = nil
+      @continuation_sequence_number = nil
+      @continuation_mutex = Mutex.new
 
       super(nil) # Call parent initializer
     end
@@ -63,6 +68,9 @@ module Kinesis
       # Just log that we're shutting down
       @logger.info("Shutting down enhanced fan-out for shard #{@shard_id}")
     end
+
+    # Add this accessor
+    attr_reader :continuation_sequence_number
 
     private
 
@@ -93,12 +101,14 @@ module Kinesis
       begin
         create_subscription
         wait_for_events
-      rescue JSON::ParserError => e
-        handle_json_error(e)
-      rescue Aws::Errors::ServiceError => e
-        handle_aws_error(e)
+
+        # Update the starting position for next iteration
+        @starting_position = next_starting_position
+      rescue JSON::ParserError, Aws::Errors::ServiceError => e
+        handle_error(e)
       rescue StandardError => e
-        handle_general_error(e)
+        # Handle separately to avoid shadowing
+        handle_error(e)
       ensure
         cleanup_connection
       end
@@ -124,8 +134,19 @@ module Kinesis
       # Create an event stream handler
       output_stream = Aws::Kinesis::EventStreams::SubscribeToShardEventStream.new
 
-      # Set up event handlers
+      # Set up event handlers with continuation tracking
       output_stream.on_subscribe_to_shard_event_event do |event|
+        # If the continuation sequence number has changed, log it
+        if event.continuation_sequence_number &&
+           @continuation_sequence_number != event.continuation_sequence_number
+          @logger.info('Updated continuation sequence number: ' \
+                      "#{@continuation_sequence_number} -> #{event.continuation_sequence_number}")
+        end
+
+        @continuation_mutex.synchronize do
+          @continuation_sequence_number = event.continuation_sequence_number
+        end
+
         process_records(event.records) if event.records && !event.records.empty?
       end
 
@@ -204,55 +225,6 @@ module Kinesis
       Thread.current.alive? && !Thread.current[:shutdown]
     end
 
-    # Handle JSON parsing errors that may occur when processing records
-    #
-    # @param error [JSON::ParserError] The JSON parsing error
-    def handle_json_error(error)
-      error_message = "JSON parsing error in enhanced fan-out for shard #{@shard_id}: #{error.message}"
-      @logger.error(error_message)
-      @logger.error("Consumer ARN: #{@consumer_arn}")
-      @logger.error("Starting position: #{@starting_position.inspect}")
-      @error_queue << error
-    end
-
-    # Handle AWS service errors that may occur when interacting with Kinesis
-    #
-    # @param error [Aws::Errors::ServiceError] The AWS service error
-    def handle_aws_error(error)
-      error_message = "AWS service error in enhanced fan-out for shard #{@shard_id}: #{error.message} (#{error.class})"
-      @logger.error(error_message)
-
-      # Log additional details if available
-      error_details = []
-      error_details << "Code: #{error.code}" if error.respond_to?(:code)
-      if error.respond_to?(:context) && error.context.respond_to?(:request_id)
-        error_details << "Request ID: #{error.context.request_id}"
-      end
-
-      @logger.error("Error details: #{error_details.join(', ')}") unless error_details.empty?
-      @error_queue << error
-    end
-
-    # Handle general errors that may occur during enhanced fan-out operations
-    #
-    # @param error [StandardError] The error that occurred
-    def handle_general_error(error)
-      # Check if this is a known HTTP/2 stream initialization error
-      if error.is_a?(Seahorse::Client::Http2StreamInitializeError)
-        error_message = "HTTP/2 stream initialization error for shard #{@shard_id}: " \
-                         "#{error.message} - #{error.original_error.message}"
-        @logger.warn(error_message)
-        @logger.warn('Will retry the subscription')
-        # Add to error queue so it can be tracked, but it will be retried
-      else
-        # This is an unexpected error, log it as such
-        error_message = "Error setting up enhanced fan-out for shard #{@shard_id}: #{error.message} (#{error.class})"
-        @logger.error(error_message)
-        @logger.error(error.backtrace.join("\n")) if error.backtrace
-      end
-      @error_queue << error
-    end
-
     # Process records received from the Kinesis stream
     # Adds each record to the record queue for further processing
     #
@@ -262,6 +234,23 @@ module Kinesis
 
       records.each do |record|
         @record_queue << [@shard_id, record]
+      end
+    end
+
+    # Add method to get starting position for next subscription
+    def next_starting_position
+      current_continuation = @continuation_mutex.synchronize do
+        @continuation_sequence_number
+      end
+
+      if current_continuation
+        @logger.info("Using continuation sequence number: #{current_continuation}")
+        {
+          type: 'AFTER_SEQUENCE_NUMBER',
+          sequence_number: current_continuation
+        }
+      else
+        @starting_position
       end
     end
   end
