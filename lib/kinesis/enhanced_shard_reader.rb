@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'timeout'
+
 module Kinesis
   # EnhancedShardReader is responsible for consuming records from a Kinesis shard
   # using Enhanced Fan-Out (EFO). EFO provides dedicated throughput of 2MB/second per
@@ -12,6 +14,7 @@ module Kinesis
   # - Graceful shutdown of streaming connections
   class EnhancedShardReader < SubthreadLoop
     DEFAULT_SLEEP_TIME = 1.0
+    DEFAULT_WAIT_TIMEOUT = 360 # 6 minutes timeout for wait operations - (1 minute buffer since AWS naturally has a 5 minute timeout)
 
     # Initialize a new Enhanced Fan-Out shard reader
     #
@@ -22,6 +25,7 @@ module Kinesis
     # @param consumer_arn [String] ARN of the registered consumer for Enhanced Fan-Out
     # @param starting_position [Hash] Position to start reading from (e.g., LATEST, TRIM_HORIZON, etc.)
     # @param sleep_time [Float, nil] Time to sleep between retry attempts
+    # @param wait_timeout [Float, nil] Timeout for waiting for events
     def initialize(
       error_queue:,
       logger:,
@@ -29,13 +33,15 @@ module Kinesis
       shard_id:,
       consumer_arn:,
       starting_position:,
-      sleep_time: nil
+      sleep_time: nil,
+      wait_timeout: nil
     )
       @error_queue = error_queue
       @logger = logger
       @record_queue = record_queue
       @shard_id = shard_id
       @sleep_time = sleep_time || DEFAULT_SLEEP_TIME
+      @wait_timeout = wait_timeout || DEFAULT_WAIT_TIMEOUT
       @consumer_arn = consumer_arn
       @starting_position = starting_position
       @subscription = nil
@@ -141,15 +147,21 @@ module Kinesis
     end
 
     # Wait for and process events from the subscription
-    # This method blocks until the subscription ends or an error occurs
+    # This method blocks until the subscription ends, an error occurs, or timeout is reached
     def wait_for_events
-      @logger.info("Waiting for events on shard #{@shard_id}")
+      @logger.info("Waiting for events on shard #{@shard_id} with timeout of #{@wait_timeout} seconds")
 
       begin
-        # Use the standard wait method that's likely mocked in your tests
-        @async_response.wait
+        # Wrap the wait call with a timeout to prevent stuck connections
+        Timeout.timeout(@wait_timeout) do
+          @async_response.wait
+        end
 
         @logger.info("Subscription ended normally for shard #{@shard_id}, will renew")
+      rescue Timeout::Error
+        @logger.warn("Timeout after #{@wait_timeout} seconds waiting for events on shard #{@shard_id}")
+        @logger.warn("HTTP/2 connection may be stuck, forcing reconnection")
+        # Don't add timeout to error queue as this is a handled case
       rescue Seahorse::Client::Http2StreamInitializeError => e
         # This is the specific error you're seeing
         @logger.warn("HTTP/2 stream reset during wait for shard #{@shard_id}: #{e.message}")
