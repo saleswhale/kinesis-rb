@@ -28,7 +28,9 @@ describe Kinesis::EnhancedShardReader do
 
     # Mock the event handlers
     allow(output_stream).to receive(:on_subscribe_to_shard_event_event).and_yield(
-      instance_double('Aws::Kinesis::Types::SubscribeToShardEvent', records: [])
+      instance_double('Aws::Kinesis::Types::SubscribeToShardEvent', 
+                      records: [], 
+                      continuation_sequence_number: 'test-continuation-sequence-123')
     )
     allow(output_stream).to receive(:on_error_event)
 
