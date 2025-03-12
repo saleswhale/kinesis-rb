@@ -14,7 +14,7 @@ module Kinesis
   # - Graceful shutdown of streaming connections
   class EnhancedShardReader < SubthreadLoop
     DEFAULT_SLEEP_TIME = 1.0
-    DEFAULT_WAIT_TIMEOUT = 360 # 6 minutes timeout for wait operations - (1 minute buffer since AWS naturally has a 5 minute timeout)
+    DEFAULT_WAIT_TIMEOUT = 360 # 6 minutes timeout (1 minute buffer as AWS naturally has a 5 minute timeout)
 
     # Initialize a new Enhanced Fan-Out shard reader
     #
@@ -160,7 +160,7 @@ module Kinesis
         @logger.info("Subscription ended normally for shard #{@shard_id}, will renew")
       rescue Timeout::Error
         @logger.warn("Timeout after #{@wait_timeout} seconds waiting for events on shard #{@shard_id}")
-        @logger.warn("HTTP/2 connection may be stuck, forcing reconnection")
+        @logger.warn('HTTP/2 connection may be stuck, forcing reconnection')
         # Don't add timeout to error queue as this is a handled case
       rescue Seahorse::Client::Http2StreamInitializeError => e
         # This is the specific error you're seeing
