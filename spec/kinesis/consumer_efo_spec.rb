@@ -17,7 +17,7 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
     client.stub_responses(:describe_stream, {
                             stream_description: {
                               stream_name: 'test-stream',
-                              stream_arn: stream_arn,
+                              stream_arn:,
                               stream_status: 'ACTIVE',
                               stream_creation_timestamp: Time.now,
                               retention_period_hours: 24,
@@ -112,7 +112,7 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
     # Set up the consumer for testing
     consumer.instance_variable_set(:@stream_info, {
                                      stream_description: {
-                                       stream_arn: stream_arn,
+                                       stream_arn:,
                                        retention_period_hours: 24
                                      }
                                    })
@@ -134,7 +134,7 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
 
   it 'registers a consumer when initialized' do
     expect(kinesis_client).to receive(:describe_stream_consumer).with(
-      stream_arn: stream_arn,
+      stream_arn:,
       consumer_name: 'test-consumer'
     ).and_return(
       Aws::Kinesis::Types::DescribeStreamConsumerOutput.new(
@@ -177,7 +177,7 @@ describe Kinesis::Consumer, 'with Enhanced Fan-Out', integration: true do
 
     it 'creates a new consumer' do
       expect(kinesis_client).to receive(:register_stream_consumer).with(
-        stream_arn: stream_arn,
+        stream_arn:,
         consumer_name: 'test-consumer'
       )
       subject.send(:register_consumer)

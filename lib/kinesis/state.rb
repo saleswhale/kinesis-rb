@@ -12,7 +12,7 @@ module Kinesis
     #                             otherwise will just default to the root dir
     def initialize(stream_name:, stream_retention_period_in_hours:, logger:, dynamodb: {})
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
-      @consumer_id = Socket.gethostbyname(Socket.gethostname).first
+      @consumer_id = Addrinfo.getaddrinfo(Socket.gethostname, nil, :INET).first.ip_address
       @dynamodb_client = dynamodb[:client]
       @dynamodb_table_name = dynamodb[:table_name]
       @logger = logger

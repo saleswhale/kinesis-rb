@@ -28,7 +28,7 @@ module Kinesis
           # First try to describe the consumer directly (faster and what the tests expect)
           begin
             response = @kinesis_client.describe_stream_consumer(
-              stream_arn: stream_arn,
+              stream_arn:,
               consumer_name: @consumer_name
             )
             @consumer_arn = response.consumer_description.consumer_arn
@@ -38,7 +38,7 @@ module Kinesis
             @logger.info("Registering new consumer '#{@consumer_name}'")
 
             response = @kinesis_client.register_stream_consumer(
-              stream_arn: stream_arn,
+              stream_arn:,
               consumer_name: @consumer_name
             )
 
@@ -82,10 +82,10 @@ module Kinesis
           error_queue: @error_queue,
           logger: @logger,
           record_queue: @record_queue,
-          shard_id: shard_id,
+          shard_id:,
           sleep_time: @reader_sleep_time,
-          consumer_arn: consumer_arn,
-          starting_position: starting_position
+          consumer_arn:,
+          starting_position:
         )
       end
     end
