@@ -15,7 +15,8 @@ module Kinesis
     #                             otherwise will just default to the root dir
     def initialize(stream_name:, stream_retention_period_in_hours:, logger:, dynamodb: {})
       @consumer_group = dynamodb[:consumer_group] || File.basename(Dir.getwd)
-      @consumer_id = Addrinfo.getaddrinfo(Socket.gethostname, nil, :INET).first.ip_address
+      @consumer_id = consumer_id
+
       @dynamodb_client = dynamodb[:client]
       @dynamodb_table_name = dynamodb[:table_name]
       @logger = logger
@@ -123,6 +124,15 @@ module Kinesis
 
     def plugged_in?
       !@dynamodb_client.nil? && !@dynamodb_table_name.nil?
+    end
+
+    # Get a unique consumer ID that works in all environments
+    def consumer_id
+      # Try to get IP address first
+      Addrinfo.getaddrinfo(Socket.gethostname, nil, :INET).first.ip_address
+    rescue StandardError
+      # Fall back to a combination of hostname and process ID as a last resort
+      "#{Socket.gethostname.tr('.', '-')}-#{Process.pid}"
     end
   end
 end
