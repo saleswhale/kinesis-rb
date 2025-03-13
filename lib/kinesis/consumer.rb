@@ -134,8 +134,24 @@ module Kinesis
     end
 
     def save_checkpoint(shard_id, item)
-      @state.checkpoint(shard_id, item[:sequence_number])
-    rescue StandardError
+      shard = @shards[shard_id]
+
+      # Default to the item's sequence number
+      sequence_number = item[:sequence_number]
+      sequence_source = 'record'
+      is_efo = false
+
+      # If using EFO and continuation sequence is available, use that instead
+      if shard.is_a?(Kinesis::EnhancedShardReader) && shard.continuation_sequence_number
+        sequence_number = shard.continuation_sequence_number
+        sequence_source = 'continuation'
+        is_efo = true
+      end
+
+      @logger.debug("Checkpointing shard #{shard_id} with #{sequence_source} sequence: #{sequence_number}")
+      @state.checkpoint(shard_id, sequence_number, efo: is_efo)
+    rescue StandardError => e
+      @logger.error("Failed to checkpoint shard #{shard_id}: #{e.message}")
       shutdown_shard_reader(shard_id)
     end
 
@@ -143,6 +159,11 @@ module Kinesis
       shard = @shards[shard_id]
 
       return unless shard
+
+      # If this is an EnhancedShardReader, checkpoint the continuation sequence if available
+      if shard.is_a?(Kinesis::EnhancedShardReader) && shard.continuation_sequence_number
+        @state.checkpoint(shard_id, shard.continuation_sequence_number, is_efo: true)
+      end
 
       shard.shutdown
 
